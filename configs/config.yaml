@@ -1,0 +1,19 @@
+app:
+  name: "usergrowth"
+  port: 8080
+
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  pass: 123456
+  db: "usergrowth_db"
+
+redis:
+  host: "localhost"
+  port: 6379
+  user: "root"
+  pass: 123456
+
+elasticsearch:
+  host: "localhost"
