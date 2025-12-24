@@ -38,7 +38,7 @@ func day2_check() {
 	configPath := os.Getenv("configPath")
 	fmt.Println("Config Path:", configPath)
 	if configPath == "" {
-		configPath = "config/config.yaml"
+		configPath = "configs/config.yaml"
 	}
 	c.LoadConfig(configPath)
 	c.PrintConfig()
