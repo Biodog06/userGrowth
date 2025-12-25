@@ -65,26 +65,26 @@ func ValidateToken(tokenString string, err error) (*UserClaims, error) {
 	return nil, err
 }
 
-func JWTMiddleware(ctx *gin.Context) {
-	tokenString, _ := ctx.Cookie("jwt-token")
-	claims, err := ValidateToken(tokenString, nil)
-	if err != nil {
-		fmt.Println(err)
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
-		})
-		return
-	}
-	cache, err := redis.GetCache(tokenString, ctx)
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "redis not found",
-		})
-		return
-	}
-	if cache == claims.UserId {
-		ctx.Set("userid", claims.UserId)
-	}
+func JWTMiddleware(rdb *redis.MyRedis) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		tokenString, _ := ctx.Cookie("jwt-token")
+		claims, err := ValidateToken(tokenString, nil)
+		if err != nil {
+			fmt.Println(err)
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+		}
+		cache, err := rdb.GetCache(tokenString, ctx)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "redis not found",
+			})
+		}
+		if cache == claims.UserId {
+			ctx.Set("userid", claims.UserId)
+		}
 
-	ctx.Next()
+		ctx.Next()
+	}
 }

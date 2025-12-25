@@ -16,6 +16,7 @@ import (
 	config "usergrowth/configs"
 	"usergrowth/internal/user"
 	"usergrowth/middleware"
+	"usergrowth/mysql"
 	"usergrowth/redis"
 
 	"github.com/gin-gonic/gin"
@@ -36,18 +37,23 @@ func main() {
 	//day3_check()
 	c := config.NewConfig()
 	configPath := os.Getenv("configPath")
-	//fmt.Println("Config Path:", configPath)
+	fmt.Println("Config Path:", configPath)
 	if configPath == "" {
 		configPath = "configs/config.yaml"
 	}
 	c.LoadConfig(configPath)
+
 	redisCtx := context.Background()
-	redis.InitRedis(c, redisCtx)
+	rdb := redis.NewRedis(c, redisCtx)
+	defer rdb.Close()
+
+	msq := mysql.NewDB(c)
+
 	middleware.InitJWT(c)
 	r := gin.Default()
-	r.POST("/user/register", user.Register)
-	r.POST("/user/login", user.Login)
-	r.GET("/authcheck", middleware.JWTMiddleware, func(ctx *gin.Context) {
+	r.POST("/user/register", user.Register(msq))
+	r.POST("/user/login", user.Login(rdb, msq))
+	r.GET("/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": 200,
 			"msg":  "authenticated",

@@ -9,11 +9,14 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var client *redis.Client
 var JWTExpireTime time.Duration
 
-func InitRedis(cfg *config.Config, ctx context.Context) {
-	client = redis.NewClient(&redis.Options{
+type MyRedis struct {
+	*redis.Client
+}
+
+func NewRedis(cfg *config.Config, ctx context.Context) *MyRedis {
+	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Pass,
 		DB:       0,
@@ -23,17 +26,20 @@ func InitRedis(cfg *config.Config, ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
+	return &MyRedis{
+		client,
+	}
 }
 
-func SetCache(key, value string, expired time.Duration, ctx context.Context) error {
-	if err := client.Set(ctx, key, value, expired).Err(); err != nil {
+func (rdb *MyRedis) SetCache(key, value string, expired time.Duration, ctx context.Context) error {
+	if err := rdb.Set(ctx, key, value, expired).Err(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetCache(key string, ctx context.Context) (string, error) {
-	val, err := client.Get(ctx, key).Result()
+func (rdb *MyRedis) GetCache(key string, ctx context.Context) (string, error) {
+	val, err := rdb.Get(ctx, key).Result()
 	if err != nil {
 		return "", err
 	}
