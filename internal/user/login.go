@@ -2,10 +2,15 @@ package user
 
 import (
 	"crypto/md5"
+	"fmt"
 	"net/http"
+	"strconv"
+	"usergrowth/middleware"
 
 	"github.com/gin-gonic/gin"
 )
+
+var userid = 1
 
 func Login(ctx *gin.Context) {
 	username := ctx.PostForm("username")
@@ -14,6 +19,15 @@ func Login(ctx *gin.Context) {
 
 	if checkPassword, loaded := userMap.Load(username); loaded {
 		if checkPassword == md5Password {
+			token, err := middleware.GenerateToken(strconv.Itoa(userid))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(token)
+			userid = userid + 1
+			// 在 JSON前 SetCookie 否则不会设置
+			ctx.SetCookie("jwt-token", token, 15*60, "/", "", false, true)
 			ctx.JSON(http.StatusOK, gin.H{
 				"message": username + " login success",
 				"data": gin.H{

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -12,6 +13,7 @@ type Config struct {
 	MySQL MySQLConfig         `yaml:"mysql"`
 	Redis RedisConfig         `yaml:"redis"`
 	ES    ElasticsearchConfig `yaml:"elasticsearch"`
+	JWT   JWTConfig           `yaml:"jwt"`
 }
 
 type AppConfig struct {
@@ -37,6 +39,11 @@ type ElasticsearchConfig struct {
 	Host string `yaml:"host"`
 }
 
+type JWTConfig struct {
+	Secret string        `yaml:"secret"`
+	Expire time.Duration `yaml:"expire"`
+}
+
 func NewConfig() *Config {
 	return &Config{}
 }
@@ -59,4 +66,6 @@ func (c *Config) PrintConfig() {
 	fmt.Println("Redis Port:", c.Redis.Port)
 	fmt.Println("Redis Pass:", c.Redis.Pass)
 	fmt.Println("Elasticsearch Host:", c.ES.Host)
+	fmt.Println("JWT Secret:", c.JWT.Secret)
+	fmt.Println("JWT Expire:", c.JWT.Expire)
 }

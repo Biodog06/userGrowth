@@ -14,6 +14,7 @@ import (
 	"time"
 	config "usergrowth/configs"
 	"usergrowth/internal/user"
+	"usergrowth/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,8 +30,26 @@ type CustomResponse struct {
 }
 
 func main() {
-	day2_check()
+	//day2_check()
 	//day3_check()
+	c := config.NewConfig()
+	configPath := os.Getenv("configPath")
+	fmt.Println("Config Path:", configPath)
+	if configPath == "" {
+		configPath = "configs/config.yaml"
+	}
+	c.LoadConfig(configPath)
+	middleware.InitJWT(c)
+	r := gin.Default()
+	r.POST("/user/register", user.Register)
+	r.POST("/user/login", user.Login)
+	r.GET("/authcheck", middleware.JWTMiddleware, func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "authenticated",
+		})
+	})
+	r.Run(":8080")
 }
 
 func day2_check() {
@@ -53,9 +72,6 @@ func day3_check() {
 		}
 		testChan <- test
 	}
-	r := gin.Default()
-	r.POST("/user/register", user.Register)
-	r.POST("/user/login", user.Login)
 
 	var wg sync.WaitGroup
 	wg.Add(60)
@@ -116,6 +132,5 @@ func day3_check() {
 			fmt.Printf("用户: %s | 密码： %s | 状态码: %d | 消息: %s\n", resLogin.Data.Name, resLogin.Data.Pass, resLogin.Code, resLogin.Msg)
 		}()
 	}
-	r.Run(":8080")
-	//wg.Wait()
+	wg.Wait()
 }
