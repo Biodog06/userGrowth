@@ -25,9 +25,14 @@ func Login(ctx *gin.Context) {
 				return
 			}
 			fmt.Println(token)
-			userid = userid + 1
-			// 在 JSON前 SetCookie 否则不会设置
-			ctx.SetCookie("jwt-token", token, 15*60, "/", "", false, true)
+			if value, err := ctx.Cookie("jwt-token"); err == nil {
+				if value == "" {
+					userid = userid + 1
+					// 在 JSON前 SetCookie 否则不会设置
+					ctx.SetCookie("jwt-token", token, 15*60, "/", "", false, true)
+				}
+			}
+
 			ctx.JSON(http.StatusOK, gin.H{
 				"message": username + " login success",
 				"data": gin.H{
