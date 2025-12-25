@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 	"usergrowth/configs"
+	"usergrowth/redis"
 
 	"github.com/gin-gonic/gin"
 )
@@ -65,15 +66,25 @@ func ValidateToken(tokenString string, err error) (*UserClaims, error) {
 }
 
 func JWTMiddleware(ctx *gin.Context) {
-	claims, err := ValidateToken(ctx.Cookie("jwt-token"))
+	tokenString, _ := ctx.Cookie("jwt-token")
+	claims, err := ValidateToken(tokenString, nil)
 	if err != nil {
 		fmt.Println(err)
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"error": "unauthorized",
 		})
-		ctx.Abort()
 		return
 	}
-	ctx.Set("userid", claims.UserId)
+	cache, err := redis.GetCache(tokenString, ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "redis not found",
+		})
+		return
+	}
+	if cache == claims.UserId {
+		ctx.Set("userid", claims.UserId)
+	}
+
 	ctx.Next()
 }

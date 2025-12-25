@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	config "usergrowth/configs"
 	"usergrowth/internal/user"
 	"usergrowth/middleware"
+	"usergrowth/redis"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,11 +36,13 @@ func main() {
 	//day3_check()
 	c := config.NewConfig()
 	configPath := os.Getenv("configPath")
-	fmt.Println("Config Path:", configPath)
+	//fmt.Println("Config Path:", configPath)
 	if configPath == "" {
 		configPath = "configs/config.yaml"
 	}
 	c.LoadConfig(configPath)
+	redisCtx := context.Background()
+	redis.InitRedis(c, redisCtx)
 	middleware.InitJWT(c)
 	r := gin.Default()
 	r.POST("/user/register", user.Register)
