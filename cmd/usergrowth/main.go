@@ -14,12 +14,14 @@ import (
 	"sync"
 	"time"
 	config "usergrowth/configs"
+	"usergrowth/internal/logs"
 	"usergrowth/internal/user"
 	"usergrowth/middleware"
 	"usergrowth/mysql"
 	"usergrowth/redis"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type testUser struct {
@@ -50,10 +52,15 @@ func main() {
 	msq := mysql.NewDB(c)
 
 	middleware.InitJWT(c)
+
+	userLogger := logs.InitLogger("logs/user.log", zap.InfoLevel)
+	defer userLogger.Sync()
+
 	r := gin.Default()
-	r.POST("/user/register", user.Register(msq))
-	r.POST("/user/login", user.Login(rdb, msq))
+	r.POST("/user/register", user.Register(msq, userLogger))
+	r.POST("/user/login", user.Login(rdb, msq, userLogger))
 	r.GET("/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
+		userLogger.RecordInfoLog("check auth on /authcheck", zap.String("username", ctx.PostForm("username")))
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": 200,
 			"msg":  "authenticated",

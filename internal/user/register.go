@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"usergrowth/internal/logs"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"usergrowth/mysql"
 )
@@ -19,27 +21,10 @@ import (
 //
 //var id = 1
 
-func Register(msq *mysql.MyDB) gin.HandlerFunc {
+func Register(msq *mysql.MyDB, userLogger *logs.MyLogger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		username := ctx.PostForm("username")
 		password := ctx.PostForm("password")
-
-		//if _, loaded := userMap.LoadOrStore(username, md5.Sum([]byte(password))); !loaded {
-		//	idMap.LoadOrStore(username, strconv.Itoa(id))
-		//	id = id + 1
-		//	ctx.JSON(http.StatusOK, gin.H{
-		//		"message": "register success",
-		//		"data": gin.H{
-		//			"Name": username,
-		//			"Pass": password,
-		//		},
-		//		"code": 200,
-		//	})
-		//} else {
-		//	ctx.JSON(http.StatusOK, gin.H{
-		//		"message": "user already exists",
-		//	})
-		//}
 
 		//MYSQL VERSION
 		data := md5.Sum([]byte(password))
@@ -51,6 +36,7 @@ func Register(msq *mysql.MyDB) gin.HandlerFunc {
 		repo := NewUserRepository(msq.DB)
 		if err := repo.CreateUser(user); err != nil {
 			if strings.Contains(err.Error(), "user already exists") {
+				userLogger.RecordInfoLog("repeated register", zap.String("username", username), zap.String("password", password))
 				ctx.JSON(http.StatusOK, gin.H{
 					"message": "user already exists",
 				})
@@ -59,6 +45,7 @@ func Register(msq *mysql.MyDB) gin.HandlerFunc {
 				return
 			}
 		} else {
+			userLogger.RecordInfoLog("register success", zap.String("username", username), zap.String("password", password))
 			ctx.JSON(http.StatusOK, gin.H{
 				"message": "register success",
 				"data": gin.H{

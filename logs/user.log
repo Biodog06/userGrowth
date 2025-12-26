@@ -1,0 +1,4 @@
+{"level":"INFO","ts":"2025-12-26T11:21:58.933+0800","caller":"logs/repository.go:43","msg":"repeated register","username":"123456","password":"123"}
+{"level":"INFO","ts":"2025-12-26T11:22:04.745+0800","caller":"logs/repository.go:43","msg":"repeated register","username":"123","password":"123"}
+{"level":"INFO","ts":"2025-12-26T11:22:07.322+0800","caller":"logs/repository.go:43","msg":"register success","username":"123a","password":"123"}
+{"level":"INFO","ts":"2025-12-26T11:22:14.399+0800","caller":"user/login.go:41","msg":"login success","username":"123a"}
