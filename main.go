@@ -55,17 +55,17 @@ func main() {
 	}(rdb)
 
 	msq := mysql.NewDB(c)
-
+	es := logs.NewEsClient(c)
 	middleware.InitJWT(c)
 
-	userLogger := logs.InitLoggerWithES("logs/user.log", c)
+	userLogger := logs.InitLoggerWithES("logs/user.log", c, es)
 	defer func(userLogger *logs.MyLogger) {
 		err := userLogger.Sync()
 		if err != nil {
 			fmt.Println("not sync:", err)
 		}
 	}(userLogger)
-
+	day3_check()
 	r := gin.Default()
 	r.POST("/user/register", user.Register(msq, userLogger))
 	r.POST("/user/login", user.Login(rdb, msq, userLogger))
@@ -76,6 +76,7 @@ func main() {
 			"msg":  "authenticated",
 		})
 	})
+	r.GET("/eslog", logs.GetLogs(es))
 	err := r.Run(":8080")
 	if err != nil {
 		return
@@ -94,8 +95,8 @@ func day2_check() {
 }
 
 func day3_check() {
-	testChan := make(chan testUser, 60)
-	for i := 0; i < 60; i++ {
+	testChan := make(chan testUser, 10)
+	for i := 0; i < 10; i++ {
 		test := testUser{
 			Name: strconv.Itoa(rand.Int()),
 			Pass: strconv.Itoa(rand.Int()),
@@ -104,19 +105,19 @@ func day3_check() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(60)
-	for i := 0; i < 60; i++ {
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
 			time.Sleep(1 * time.Second)
-			user := <-testChan
+			randomUser := <-testChan
 			data := url.Values{}
-			data.Set("username", user.Name)
-			data.Set("password", user.Pass)
+			data.Set("username", randomUser.Name)
+			data.Set("password", randomUser.Pass)
 			resp, err := http.Post("http://localhost:8080/user/register",
 				"application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 			defer func(Body io.ReadCloser) {
-				err := Body.Close()
+				err = Body.Close()
 				if err != nil {
 					fmt.Println("not close:", err)
 				}
@@ -172,5 +173,4 @@ func day3_check() {
 			fmt.Printf("用户: %s | 密码： %s | 状态码: %d | 消息: %s\n", resLogin.Data.Name, resLogin.Data.Pass, resLogin.Code, resLogin.Msg)
 		}()
 	}
-	wg.Wait()
 }

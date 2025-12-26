@@ -36,8 +36,12 @@ type RedisConfig struct {
 }
 
 type ElasticsearchConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host         string `yaml:"host"`
+	Port         int    `yaml:"port"`
+	MaxQueueSize int    `yaml:"maxQueueSize"`
+	Workers      int    `yaml:"workers"`
+	LogIndex     string `yaml:"logIndex"`
+	MaxBatchSize int    `yaml:"maxBatchSize"`
 }
 
 type JWTConfig struct {
@@ -52,7 +56,11 @@ func NewConfig() *Config {
 func (c *Config) LoadConfig(path string) {
 	// Implementation for loading configuration from a file
 	byteData, _ := os.ReadFile(path)
-	yaml.Unmarshal(byteData, c)
+	err := yaml.Unmarshal(byteData, c)
+	if err != nil {
+		fmt.Println("yaml Unmarshal err:", err)
+		return
+	}
 }
 
 func (c *Config) PrintConfig() {

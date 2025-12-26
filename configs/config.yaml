@@ -18,6 +18,10 @@ redis:
 elasticsearch:
   host: "localhost"
   port: 9200
+  maxQueueSize: 100
+  workers: 3
+  logIndex: "zap-logs"
+  maxBatchSize: 2
 
 jwt:
   secret: "test"
