@@ -44,15 +44,14 @@ func Register(msq *mysql.MyDB) gin.HandlerFunc {
 		//MYSQL VERSION
 		data := md5.Sum([]byte(password))
 		hashPass := hex.EncodeToString(data[:])
-		user := &User{
-			username: username,
-			password: hashPass,
+		user := &Users{
+			Username: username,
+			Password: hashPass,
 		}
 		repo := NewUserRepository(msq.DB)
 		if err := repo.CreateUser(user); err != nil {
-			if strings.Contains(err.Error(), "Duplicate entry") ||
-				strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				ctx.AbortWithStatusJSON(http.StatusOK, gin.H{
+			if strings.Contains(err.Error(), "user already exists") {
+				ctx.JSON(http.StatusOK, gin.H{
 					"message": "user already exists",
 				})
 			} else {

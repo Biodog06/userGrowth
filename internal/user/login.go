@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"usergrowth/middleware"
 	"usergrowth/mysql"
 	"usergrowth/redis"
@@ -19,7 +20,7 @@ func Login(rdb *redis.MyRedis, msq *mysql.MyDB) gin.HandlerFunc {
 		password := ctx.PostForm("password")
 		md5Password := md5.Sum([]byte(password))
 		hashPass := hex.EncodeToString(md5Password[:])
-		
+
 		//if checkPassword, loaded := userMap.Load(username); loaded {
 		//	if checkPassword == md5Password {
 		//		userVal, _ := idMap.Load(username)
@@ -59,15 +60,15 @@ func Login(rdb *redis.MyRedis, msq *mysql.MyDB) gin.HandlerFunc {
 
 		repo := NewUserRepository(msq.DB)
 		if user, err := repo.FindUserByUsername(username); err == nil {
-			if user.password == hashPass {
-				token, err := middleware.GenerateToken(user.userid)
+			if user.Password == hashPass {
+				token, err := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
 				fmt.Println(token)
 				ctx.SetCookie("jwt-token", token, 15*60, "/", "", false, true)
-				if err := rdb.SetCache(token, user.userid, redis.JWTExpireTime, ctx); err != nil {
+				if err := rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, ctx); err != nil {
 					fmt.Println(err)
 					return
 				}
@@ -90,10 +91,10 @@ func Login(rdb *redis.MyRedis, msq *mysql.MyDB) gin.HandlerFunc {
 					"message": "invalid username or password",
 				})
 				return
-			} else {
-				fmt.Println(err)
-				return
 			}
+
+			fmt.Println(err)
+			return
 		}
 	}
 }
