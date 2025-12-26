@@ -1,4 +1,4 @@
-package usergrowth
+package main
 
 import (
 	"context"
@@ -47,14 +47,24 @@ func main() {
 
 	redisCtx := context.Background()
 	rdb := redis.NewRedis(c, redisCtx)
-	defer rdb.Close()
+	defer func(rdb *redis.MyRedis) {
+		err := rdb.Close()
+		if err != nil {
+			fmt.Println("not close:", err)
+		}
+	}(rdb)
 
 	msq := mysql.NewDB(c)
 
 	middleware.InitJWT(c)
 
 	userLogger := logs.InitLoggerWithES("logs/user.log", c)
-	defer userLogger.Sync()
+	defer func(userLogger *logs.MyLogger) {
+		err := userLogger.Sync()
+		if err != nil {
+			fmt.Println("not sync:", err)
+		}
+	}(userLogger)
 
 	r := gin.Default()
 	r.POST("/user/register", user.Register(msq, userLogger))
@@ -66,7 +76,10 @@ func main() {
 			"msg":  "authenticated",
 		})
 	})
-	r.Run(":8080")
+	err := r.Run(":8080")
+	if err != nil {
+		return
+	}
 }
 
 func day2_check() {
@@ -100,9 +113,14 @@ func day3_check() {
 			data := url.Values{}
 			data.Set("username", user.Name)
 			data.Set("password", user.Pass)
-			resp, _ := http.Post("http://localhost:8080/user/register",
+			resp, err := http.Post("http://localhost:8080/user/register",
 				"application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					fmt.Println("not close:", err)
+				}
+			}(resp.Body)
 			// 打印状态码 (int) 和 状态描述 (string)
 			// 1. 读取 Body 的字节数据
 			bodyBytes, err := io.ReadAll(resp.Body)
@@ -126,7 +144,12 @@ func day3_check() {
 
 			respLogin, _ := http.Post("http://localhost:8080/user/login",
 				"application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
-			defer respLogin.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					fmt.Println("not close:", err)
+				}
+			}(respLogin.Body)
 			// 打印状态码 (int) 和 状态描述 (string)
 			// 1. 读取 Body 的字节数据
 			bodyLoginBytes, err := io.ReadAll(respLogin.Body)

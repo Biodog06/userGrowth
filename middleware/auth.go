@@ -42,9 +42,9 @@ func GenerateToken(userid string) (string, error) {
 	signedToken, err := token.SignedString(jwtSecret)
 	if err != nil {
 		return "", err
-	} else {
-		return signedToken, nil
 	}
+
+	return signedToken, nil
 }
 
 func ValidateToken(tokenString string, err error) (*UserClaims, error) {

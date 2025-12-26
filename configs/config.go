@@ -37,6 +37,7 @@ type RedisConfig struct {
 
 type ElasticsearchConfig struct {
 	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
 }
 
 type JWTConfig struct {

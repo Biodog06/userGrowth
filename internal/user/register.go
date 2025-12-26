@@ -3,9 +3,9 @@ package user
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"usergrowth/internal/logs"
 
 	"github.com/gin-gonic/gin"
@@ -35,7 +35,7 @@ func Register(msq *mysql.MyDB, userLogger *logs.MyLogger) gin.HandlerFunc {
 		}
 		repo := NewUserRepository(msq.DB)
 		if err := repo.CreateUser(user); err != nil {
-			if strings.Contains(err.Error(), "user already exists") {
+			if errors.Is(err, ErrDuplicateUser) {
 				userLogger.RecordInfoLog("repeated register", zap.String("username", username), zap.String("password", password))
 				ctx.JSON(http.StatusOK, gin.H{
 					"message": "user already exists",

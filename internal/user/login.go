@@ -56,7 +56,7 @@ func Login(rdb *redis.MyRedis, msq *mysql.MyDB, userLogger *logs.MyLogger) gin.H
 		} else {
 			if errors.Is(err, ErrUserNotFound) {
 				userLogger.RecordInfoLog("login failed", zap.String("username", username), zap.String("password", password))
-				ctx.JSON(http.StatusUnauthorized, gin.H{
+				ctx.JSON(http.StatusOK, gin.H{
 					"message": "invalid username or password",
 				})
 				return
