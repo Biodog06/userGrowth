@@ -1,4 +1,4 @@
-package main
+package usergrowth
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func main() {
 
 	middleware.InitJWT(c)
 
-	userLogger := logs.InitLogger("logs/user.log", zap.InfoLevel)
+	userLogger := logs.InitLoggerWithES("logs/user.log", c)
 	defer userLogger.Sync()
 
 	r := gin.Default()
