@@ -8,17 +8,18 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 // SearchRequest 查询参数
 type SearchRequest struct {
-	Keyword   string `form:"keyword"`    // 关键词
-	Level     string `form:"level"`      // 日志级别
-	StartTime string `form:"start_time"` // 开始时间 (ISO8601)
-	EndTime   string `form:"end_time"`   // 结束时间
-	Page      int    `form:"page"`       // 页码
-	Size      int    `form:"size"`       // 每页条数
+	Keyword   string `p:"keyword"`
+	Level     string `p:"level"`
+	StartTime string `p:"start_time"`
+	EndTime   string `p:"end_time"`
+	Page      int    `p:"page"`
+	Size      int    `p:"size"`
 }
 
 // 标准返回格式
@@ -29,12 +30,15 @@ type Response struct {
 	Total   int         `json:"total"`
 }
 
-func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func GetLogs(h *MyAsyncEs) func(r *ghttp.Request) {
+	return func(r *ghttp.Request) {
 		var req SearchRequest
 		// 1. 绑定并校验参数
-		if err := c.ShouldBindQuery(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := r.Parse(&req); err != nil {
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusBadRequest,
+				Message: err.Error(),
+			})
 			return
 		}
 
@@ -101,7 +105,11 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 		// 3. 执行查询
 		var buf bytes.Buffer
 		if err := json.NewEncoder(&buf).Encode(query); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON encode error"})
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusInternalServerError,
+				Message: err.Error(),
+			})
+			return
 		}
 
 		res, err := h.client.Search(
@@ -111,11 +119,14 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 			h.client.Search.WithTrackTotalHits(true),
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ES query error"})
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusInternalServerError,
+				Message: err.Error(),
+			})
 			return
 		}
 		defer func(Body io.ReadCloser) {
-			err := Body.Close()
+			err = Body.Close()
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -125,31 +136,41 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 		// 1. 检查 HTTP 状态码是否为 200
 		if res.IsError() {
 			var errRes map[string]interface{}
-			err := json.NewDecoder(res.Body).Decode(&errRes)
+			err = json.NewDecoder(res.Body).Decode(&errRes)
 			if err != nil {
-				c.JSON(500, gin.H{"error": "解析响应失败"})
+				r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+					Code:    http.StatusInternalServerError,
+					Message: err.Error(),
+				})
 				return
 			}
 			fmt.Printf("ES 查询报错: %+v\n", errRes) // 在控制台打印具体的 DSL 错误
-			c.JSON(res.StatusCode, gin.H{
+			r.Response.WriteStatus(res.StatusCode)
+			r.Response.WriteJson(g.Map{
 				"error":  "ES查询失败",
 				"detail": errRes,
 			})
 			return
 		}
 
-		var r map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-			c.JSON(500, gin.H{"error": "解析响应失败"})
+		var raw map[string]interface{}
+		if err = json.NewDecoder(res.Body).Decode(&r); err != nil {
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusInternalServerError,
+				Message: err.Error(),
+			})
 			return
 		}
 
 		// 2. 安全检查 hits 字段是否存在
-		hitsRoot, ok := r["hits"].(map[string]interface{})
+		hitsRoot, ok := raw["hits"].(map[string]interface{})
 		if !ok {
 			// 如果走到这里，说明响应里根本没有 hits
 			fmt.Printf("ES 响应异常，完整内容: %+v\n", r)
-			c.JSON(500, gin.H{"error": "ES响应格式不符合预期"})
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusInternalServerError,
+				Message: err.Error(),
+			})
 			return
 		}
 
@@ -168,9 +189,8 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 				results = append(results, source)
 			}
 		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"code":  200,
+		r.Response.WriteStatus(http.StatusOK)
+		r.Response.WriteJson(g.Map{
 			"total": total,
 			"data":  results,
 		})

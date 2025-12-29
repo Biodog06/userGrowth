@@ -11,31 +11,34 @@ import (
 	"usergrowth/middleware"
 	"usergrowth/redis"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/gogf/gf/v2/net/ghttp"
 	"go.uber.org/zap"
 )
 
-func Login(rdb redis.Cache, repo UserRepository, userLogger *logs.MyLogger) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+func Login(rdb redis.Cache, repo UserRepository, userLogger *logs.MyLogger) func(r *ghttp.Request) {
+	return func(r *ghttp.Request) {
 		var req struct {
-			Username string `json:"username" binding:"required"`
-			Password string `json:"password" binding:"required"`
+			Username string `json:"username" v:"required#username and password required"`
+			Password string `json:"password" v:"required#username and password required"`
 		}
-		if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err := r.Parse(&req); err != nil {
 			var errV validator.ValidationErrors
 			if errors.As(err, &errV) {
 				userLogger.RecordInfoLog("login failed: missing params")
-				ctx.JSON(http.StatusBadRequest, gin.H{
-					"message": "username and password required",
-					"code":    400,
+				r.Response.Status = http.StatusBadRequest
+				r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+					Code:    400,
+					Message: "username and password required",
 				})
 				return
 			}
-			userLogger.RecordInfoLog("login failed: invalid request")
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"message": "invalid request",
-				"code":    400,
+			fmt.Println(err)
+			userLogger.RecordInfoLog("login failed: unknown error")
+			r.Response.WriteStatus(http.StatusBadRequest)
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    400,
+				Message: "unknown error",
 			})
 			return
 		}
@@ -46,43 +49,55 @@ func Login(rdb redis.Cache, repo UserRepository, userLogger *logs.MyLogger) gin.
 		//MYSQL VERSION
 		if user, err := repo.FindUserByUsername(req.Username); err == nil {
 			if user.Password == hashPass {
-				token, err := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
-				if err != nil {
-					fmt.Println(err)
+				token, errM := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
+				if errM != nil {
+					fmt.Println(errM)
 					return
 				}
 				fmt.Println(token)
-				ctx.SetCookie("jwt-token", token, 15*60, "/", "", false, true)
-				if err := rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, ctx); err != nil {
+				r.Cookie.SetHttpCookie(&http.Cookie{
+					Name:     "jwt-token",
+					Value:    token,
+					Path:     "/",
+					MaxAge:   15 * 60,
+					HttpOnly: true,
+					Secure:   false,
+				})
+				if err = rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, r.Context()); err != nil {
 					fmt.Println(err)
 					return
 				}
 				userLogger.Log(zap.InfoLevel, "login success", zap.String("username", req.Username))
-				ctx.JSON(http.StatusOK, gin.H{
-					"message": req.Username + " login success",
-					"data": gin.H{
-						"Name": req.Username,
-						"Pass": req.Password,
-					},
-					"code": 200,
-				})
+				data := make(map[string]string)
+				data["Name"] = req.Username
+				data["Pass"] = req.Password
+				r.Response.Status = http.StatusOK
+				r.Response.WriteJson(
+					ghttp.DefaultHandlerResponse{
+						Code:    200,
+						Message: req.Username + " login success",
+						Data:    data,
+					})
 			} else {
-				userLogger.RecordInfoLog("login failed", zap.String("username", req.Username), zap.String("password", req.Password))
-				ctx.JSON(http.StatusUnauthorized, gin.H{
-					"message": "check password fail",
-					"code":    401,
-				})
+				userLogger.RecordInfoLog("login failed: check user or password failed", zap.String("username", req.Username), zap.String("password", req.Password))
+				r.Response.Status = http.StatusUnauthorized
+				r.Response.WriteJson(
+					ghttp.DefaultHandlerResponse{
+						Code:    401,
+						Message: "check user or password failed",
+					})
 			}
 		} else {
 			if errors.Is(err, ErrUserNotFound) {
-				userLogger.RecordInfoLog("login failed", zap.String("username", req.Username), zap.String("password", req.Password))
-				ctx.JSON(http.StatusUnauthorized, gin.H{
-					"message": "invalid username or password",
-					"code":    401,
-				})
+				userLogger.RecordInfoLog("login failed: invalid username", zap.String("username", req.Username), zap.String("password", req.Password))
+				r.Response.Status = http.StatusUnauthorized
+				r.Response.WriteJson(
+					ghttp.DefaultHandlerResponse{
+						Code:    401,
+						Message: "invalid username",
+					})
 				return
 			}
-
 			fmt.Println(err)
 			return
 		}
