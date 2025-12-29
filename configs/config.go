@@ -24,31 +24,31 @@ type AppConfig struct {
 }
 
 type MySQLConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port" default:"3306"`
-	User string `yaml:"user"`
-	Pass string `yaml:"pass"`
-	DB   string `yaml:"db"`
+	Host string `yaml:"host" default:"localhost" required:"true"`
+	Port int    `yaml:"port" default:"3306" required:"true"`
+	User string `yaml:"user" required:"true"`
+	Pass string `yaml:"pass" required:"true"`
+	DB   string `yaml:"db" required:"true"`
 }
 
 type RedisConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host string `yaml:"host" default:"localhost" required:"true"`
+	Port int    `yaml:"port" default:"6379" required:"true"`
 	Pass string `yaml:"pass"`
 }
 
 type ElasticsearchConfig struct {
-	Host         string `yaml:"host"`
-	Port         int    `yaml:"port"`
-	MaxQueueSize int    `yaml:"maxQueueSize"`
-	Workers      int    `yaml:"workers"`
-	LogIndex     string `yaml:"logIndex"`
-	MaxBatchSize int    `yaml:"maxBatchSize"`
+	Host         string `yaml:"host" default:"localhost" required:"true"`
+	Port         int    `yaml:"port" default:"9200" required:"true"`
+	MaxQueueSize int    `yaml:"maxQueueSize" default:"100"`
+	Workers      int    `yaml:"workers" default:"3"`
+	LogIndex     string `yaml:"logIndex" required:"true"`
+	MaxBatchSize int    `yaml:"maxBatchSize" default:"20"`
 }
 
 type JWTConfig struct {
-	Secret string        `yaml:"secret"`
-	Expire time.Duration `yaml:"expire"`
+	Secret string        `yaml:"secret" default:"test"`
+	Expire time.Duration `yaml:"expire" default:"1h"`
 }
 
 func NewConfig() *Config {
