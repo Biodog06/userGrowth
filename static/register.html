@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>用户注册 - 本地测试</title>
+  <!-- 引入 Element Plus 样式和脚本 -->
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/element-plus"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    body { background-color: #f5f7fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .register-card { width: 400px; }
+    .header { text-align: center; color: #409eff; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <el-card class="register-card">
+    <h2 class="header">新用户注册</h2>
+    <el-form :model="form" label-position="top">
+      <el-form-item label="用户名">
+        <el-input v-model="form.username" placeholder="请设置用户名"></el-input>
+      </el-form-item>
+      <el-form-item label="密码">
+        <el-input v-model="form.password" type="password" placeholder="请设置密码" show-password></el-input>
+      </el-form-item>
+      <el-form-item label="确认密码">
+        <el-input v-model="form.rePassword" type="password" placeholder="请再次输入密码" show-password></el-input>
+      </el-form-item>
+
+      <el-button type="success" style="width: 100%;" @click="handleRegister" :loading="loading">立即注册</el-button>
+
+      <div style="margin-top: 15px; text-align: center;">
+        <el-link type="primary" href="/login.html">已有账号？去登录</el-link>
+      </div>
+    </el-form>
+  </el-card>
+</div>
+
+<script>
+  const { createApp, ref } = Vue;
+  createApp({
+    setup() {
+      const form = ref({ username: '', password: '', rePassword: '' });
+      const loading = ref(false);
+
+      const handleRegister = async () => {
+        // 1. 简单的前端校验
+        if (!form.value.username || !form.value.password) {
+          ElementPlus.ElMessage.warning('用户名和密码必填');
+          return;
+        }
+        if (form.value.password !== form.value.rePassword) {
+          ElementPlus.ElMessage.error('两次输入的密码不一致');
+          return;
+        }
+
+        loading.value = true;
+        try {
+          // 2. 发送 POST 请求，Body 为 JSON
+          const res = await axios.post('/user/register', {
+            username: form.value.username,
+            password: form.value.password
+          });
+
+          if (res.data.code === 200) {
+            ElementPlus.ElMessageBox.alert('注册成功！点击确定跳转登录', '提示', {
+              confirmButtonText: '确定',
+              callback: () => {
+                window.location.href = '/login.html'; // 跳转到登录页
+              }
+            });
+          }
+        } catch (err) {
+          // 3. 处理后端返回的错误（如用户已存在）
+          const errorMsg = err.response?.data?.message || '注册失败';
+          ElementPlus.ElMessage.error(errorMsg);
+        } finally {
+          loading.value = false;
+        }
+      };
+
+      return { form, loading, handleRegister };
+    }
+  }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

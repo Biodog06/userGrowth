@@ -12,6 +12,7 @@ import (
 	"usergrowth/redis"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
 
@@ -22,9 +23,18 @@ func Login(rdb redis.Cache, repo UserRepository, userLogger *logs.MyLogger) gin.
 			Password string `json:"password" binding:"required"`
 		}
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			userLogger.RecordInfoLog("login failed: missing params")
+			var errV validator.ValidationErrors
+			if errors.As(err, &errV) {
+				userLogger.RecordInfoLog("login failed: missing params")
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"message": "username and password required",
+					"code":    400,
+				})
+				return
+			}
+			userLogger.RecordInfoLog("login failed: invalid request")
 			ctx.JSON(http.StatusBadRequest, gin.H{
-				"message": "username and password required",
+				"message": "invalid request",
 				"code":    400,
 			})
 			return

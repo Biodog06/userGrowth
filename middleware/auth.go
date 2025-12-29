@@ -74,6 +74,7 @@ func JWTMiddleware(rdb redis.Cache) gin.HandlerFunc {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "unauthorized",
 			})
+			return
 		}
 		cache, err := rdb.GetCache(tokenString, ctx)
 		if err != nil {

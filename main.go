@@ -67,16 +67,19 @@ func main() {
 	//day3_check()
 	r := gin.Default()
 	repo := user.NewUserRepository(msq.DB)
+	r.StaticFile("/register.html", "./static/register.html")
+	r.StaticFile("/login.html", "./static/login.html")
+	r.StaticFile("/eslog.html", "./static/eslog.html")
 	r.POST("/user/register", user.Register(repo, userLogger))
 	r.POST("/user/login", user.Login(rdb, repo, userLogger))
-	r.GET("/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
-		userLogger.RecordInfoLog("check auth on /authcheck", zap.String("username", ctx.PostForm("username")))
+	r.GET("/api/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
+		userLogger.RecordInfoLog("check auth on /api/authcheck", zap.String("username", ctx.PostForm("username")))
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": 200,
 			"msg":  "authenticated",
 		})
 	})
-	r.GET("/eslog", logs.GetLogs(es))
+	r.GET("/api/eslog", logs.GetLogs(es))
 	addr := fmt.Sprintf(":%s", c.App.Port)
 	err := r.Run(addr)
 	if err != nil {

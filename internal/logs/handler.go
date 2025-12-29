@@ -94,7 +94,7 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 
 			filter := boolQuery["filter"].([]map[string]interface{})
 			boolQuery["filter"] = append(filter, map[string]interface{}{
-				"range": map[string]interface{}{"timestamp": rangeQuery},
+				"range": map[string]interface{}{"ts": rangeQuery},
 			})
 		}
 
@@ -125,7 +125,11 @@ func GetLogs(h *MyAsyncEs) gin.HandlerFunc {
 		// 1. 检查 HTTP 状态码是否为 200
 		if res.IsError() {
 			var errRes map[string]interface{}
-			json.NewDecoder(res.Body).Decode(&errRes)
+			err := json.NewDecoder(res.Body).Decode(&errRes)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "解析响应失败"})
+				return
+			}
 			fmt.Printf("ES 查询报错: %+v\n", errRes) // 在控制台打印具体的 DSL 错误
 			c.JSON(res.StatusCode, gin.H{
 				"error":  "ES查询失败",

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>ES 日志监控系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body { background-color: #f5f7fa; margin: 0; padding: 20px; font-family: "Helvetica Neue",Helvetica,Arial,sans-serif; }
+        .filter-card { margin-bottom: 20px; }
+        .log-table { border-radius: 8px; overflow: hidden; }
+        .level-tag { width: 60px; text-align: center; }
+        .pagination-container { margin-top: 20px; display: flex; justify-content: flex-end; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <h2 style="margin: 0; color: #409EFF;">🚀 ES 日志监控面板</h2>
+        <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
+    </div>
+
+    <!-- 过滤器卡片 -->
+    <el-card class="filter-card" shadow="never">
+        <el-form :inline="true" :model="queryParam">
+            <el-form-item label="关键词">
+                <el-input v-model="queryParam.keyword" placeholder="搜索消息内容" clearable @keyup.enter="handleSearch"></el-input>
+            </el-form-item>
+            <el-form-item label="级别">
+                <el-select v-model="queryParam.level" placeholder="全部级别" clearable style="width: 120px;">
+                    <el-option label="INFO" value="info"></el-option>
+                    <el-option label="WARN" value="warn"></el-option>
+                    <el-option label="ERROR" value="error"></el-option>
+                    <el-option label="DEBUG" value="debug"></el-option>
+                </el-select>
+            </el-form-item>
+            <el-form-item label="时间范围">
+                <el-date-picker
+                        v-model="dateRange"
+                        type="datetimerange"
+                        range-separator="至"
+                        start-placeholder="开始时间"
+                        end-placeholder="结束时间"
+                        value-format="YYYY-MM-DDTHH:mm:ssZ"
+                ></el-date-picker>
+            </el-form-item>
+            <el-form-item>
+                <el-button type="primary" @click="handleSearch">查询</el-button>
+                <el-button @click="resetQuery">重置</el-button>
+            </el-form-item>
+        </el-form>
+    </el-card>
+
+    <!-- 日志表格 -->
+    <el-table :data="logData" v-loading="loading" class="log-table" stripe style="width: 100%" border>
+        <!-- 修改 时间列 -->
+        <el-table-column label="时间" width="220">
+            <template #default="scope">
+                <!-- 尝试 ts, timestamp, @timestamp, T 等常见字段 -->
+                {{ formatTime(scope.row.ts || scope.row.timestamp || scope.row['@timestamp'] || scope.row.T) }}
+            </template>
+        </el-table-column>
+
+        <!-- 修改 内容列 -->
+        <el-table-column label="日志内容" min-width="400">
+            <template #default="scope">
+                <!-- 尝试 message, msg, content 等常见字段 -->
+                <code style="word-break: break-all;">
+                    {{ scope.row.message || scope.row.msg || scope.row.content || JSON.stringify(scope.row) }}
+                </code>
+            </template>
+        </el-table-column>
+        <el-table-column prop="caller" label="调用者" width="200" show-overflow-tooltip></el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+        <el-pagination
+                v-model:current-page="queryParam.page"
+                v-model:page-size="queryParam.size"
+                :page-sizes="[10, 20, 50, 100]"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="total"
+                @size-change="fetchLogs"
+                @current-change="fetchLogs"
+        ></el-pagination>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, reactive, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const loading = ref(false);
+            const logData = ref([]);
+            const total = ref(0);
+            const dateRange = ref([]);
+
+            const queryParam = reactive({
+                keyword: '',
+                level: '',
+                start_time: '',
+                end_time: '',
+                page: 1,
+                size: 10
+            });
+
+            // 获取日志数据
+            const fetchLogs = async () => {
+                loading.value = true;
+                try {
+                    // 处理时间范围
+                    if (dateRange.value && dateRange.value.length === 2) {
+                        queryParam.start_time = dateRange.value[0];
+                        queryParam.end_time = dateRange.value[1];
+                    } else {
+                        queryParam.start_time = '';
+                        queryParam.end_time = '';
+                    }
+
+                    // 发送 GET 请求，参数绑定到 URL Query 上
+                    const res = await axios.get('/api/eslog', { params: queryParam });
+
+                    if (res.data.code === 200) {
+                        logData.value = res.data.data;
+                        total.value = res.data.total;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    ElementPlus.ElMessage.error('获取日志失败: ' + (err.response?.data?.error || '服务器错误'));
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            const handleSearch = () => {
+                queryParam.page = 1;
+                fetchLogs();
+            };
+
+            const resetQuery = () => {
+                queryParam.keyword = '';
+                queryParam.level = '';
+                queryParam.page = 1;
+                dateRange.value = [];
+                fetchLogs();
+            };
+
+            const getLevelType = (level) => {
+                const l = level.toLowerCase();
+                if (l.includes('info')) return 'info';
+                if (l.includes('warn')) return 'warning';
+                if (l.includes('error')) return 'danger';
+                if (l.includes('debug')) return 'success';
+                return '';
+            };
+
+            const formatTime = (ts) => {
+                if (!ts) return '-';
+                return new Date(ts).toLocaleString();
+            };
+
+            const handleLogout = () => {
+                window.location.href = '/login.html';
+            };
+
+            onMounted(() => {
+                fetchLogs();
+            });
+
+            return {
+                loading, logData, total, queryParam, dateRange,
+                fetchLogs, handleSearch, resetQuery, getLevelType, formatTime, handleLogout
+            };
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>本地测试登录</title>
+    <!-- 引入基础样式，单机测试直接用 CDN 即可 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body style="display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f2f5;">
+<div id="app">
+    <el-card style="width: 350px;">
+        <h3>管理后台登录</h3>
+        <el-form :model="form">
+            <el-form-item>
+                <el-input v-model="form.username" placeholder="用户名"></el-input>
+            </el-form-item>
+            <el-form-item>
+                <el-input v-model="form.password" type="password" placeholder="密码"></el-input>
+            </el-form-item>
+            <el-button type="primary" @click="doLogin" style="width:100%">登录</el-button>
+        </el-form>
+    </el-card>
+</div>
+
+<script>
+    const { createApp, ref } = Vue;
+    createApp({
+        setup() {
+            const form = ref({ username: '', password: '' });
+            const doLogin = async () => {
+                try {
+                    // 因为在同一个端口，直接写相对路径 /login
+                    const res = await axios.post('/user/login', {
+                        username: form.value.username,
+                        password: form.value.password
+                    });
+                    if(res.data.code === 200) {
+                        ElementPlus.ElMessage.success(res.data.message);
+                        // 登录成功后，浏览器会自动保存你的 jwt-token Cookie
+                        console.log("Token已存入Cookie");
+                        setTimeout(() => {
+                            window.location.href = '/eslog.html';
+                        }, 1000);
+                    }
+                } catch (err) {
+                    ElementPlus.ElMessage.error(err.response?.data?.message || '登录失败');
+                }
+            };
+            return { form, doLogin };
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

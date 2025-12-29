@@ -9,6 +9,7 @@ import (
 	"usergrowth/internal/logs"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
 
@@ -25,12 +26,21 @@ func Register(repo UserRepository, userLogger *logs.MyLogger) gin.HandlerFunc {
 			Username string `json:"username" binding:"required"`
 			Password string `json:"password" binding:"required"`
 		}
+		var errV validator.ValidationErrors
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			userLogger.RecordInfoLog("login failed: missing params")
+			if errors.As(err, &errV) {
+				userLogger.RecordInfoLog("login failed: missing params")
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"message": "username and password required",
+					"code":    400,
+				})
+				return
+			}
 			ctx.JSON(http.StatusBadRequest, gin.H{
-				"message": "username and password required",
+				"message": "invalid request",
 				"code":    400,
 			})
+			userLogger.RecordInfoLog("login failed: invalid request")
 			return
 		}
 		//MYSQL VERSION

@@ -22,6 +22,7 @@ func TestLogin(t *testing.T) {
 		name          string
 		username      string
 		password      string
+		rawBody       string
 		mockFindUser  func(*MockUserRepository)
 		mockRedis     func(*redis.MockRedis)
 		expectMessage string
@@ -76,6 +77,12 @@ func TestLogin(t *testing.T) {
 			expectStatus:  http.StatusUnauthorized,
 		},
 		{
+			name:          "invalid json syntax",
+			rawBody:       `"username": "Alice", "password": "123"`,
+			expectMessage: "invalid request",
+			expectStatus:  http.StatusBadRequest,
+		},
+		{
 			name:          "missing username",
 			username:      "",
 			password:      "123456",
@@ -106,11 +113,22 @@ func TestLogin(t *testing.T) {
 
 			handler := Login(mockRDB, mockRepo, logger)
 
-			reqBody := map[string]string{
-				"username": tt.username,
-				"password": tt.password,
+			var body []byte
+			if tt.rawBody != "" {
+				body = []byte(tt.rawBody)
+			} else {
+				reqBody := map[string]string{
+					"username": tt.username,
+					"password": tt.password,
+				}
+				var err error
+				body, err = json.Marshal(reqBody)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 			}
-			body, _ := json.Marshal(reqBody)
+
 			req := httptest.NewRequest("POST", "/login", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()

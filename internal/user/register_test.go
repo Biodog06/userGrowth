@@ -19,6 +19,7 @@ func TestRegister(t *testing.T) {
 		name           string
 		username       string
 		password       string
+		rawBody        string
 		mockCreateUser func(repository *MockUserRepository)
 		expectMessage  string
 		expectStatus   int
@@ -54,6 +55,12 @@ func TestRegister(t *testing.T) {
 			expectStatus:  http.StatusBadRequest,
 		},
 		{
+			name:          "invalid json syntax",
+			rawBody:       `"username": "Alice", "password": "123"`,
+			expectMessage: "invalid request",
+			expectStatus:  http.StatusBadRequest,
+		},
+		{
 			name:          "missing username",
 			username:      "",
 			password:      "123456",
@@ -80,11 +87,21 @@ func TestRegister(t *testing.T) {
 
 			handler := Register(mockRepo, logger)
 
-			reqBody := map[string]string{
-				"username": tt.username,
-				"password": tt.password,
+			var body []byte
+			if tt.rawBody != "" {
+				body = []byte(tt.rawBody)
+			} else {
+				reqBody := map[string]string{
+					"username": tt.username,
+					"password": tt.password,
+				}
+				var err error
+				body, err = json.Marshal(reqBody)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 			}
-			body, _ := json.Marshal(reqBody)
 			req := httptest.NewRequest("POST", "/register", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
