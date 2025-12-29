@@ -47,7 +47,7 @@ func main() {
 
 	redisCtx := context.Background()
 	rdb := redis.NewRedis(c, redisCtx)
-	defer func(rdb *redis.MyRedis) {
+	defer func(rdb redis.Cache) {
 		err := rdb.Close()
 		if err != nil {
 			fmt.Println("not close:", err)
@@ -67,8 +67,9 @@ func main() {
 	}(userLogger)
 	day3_check()
 	r := gin.Default()
-	r.POST("/user/register", user.Register(msq, userLogger))
-	r.POST("/user/login", user.Login(rdb, msq, userLogger))
+	repo := user.NewUserRepository(msq.DB)
+	r.POST("/user/register", user.Register(repo, userLogger))
+	r.POST("/user/login", user.Login(rdb, repo, userLogger))
 	r.GET("/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
 		userLogger.RecordInfoLog("check auth on /authcheck", zap.String("username", ctx.PostForm("username")))
 		ctx.JSON(http.StatusOK, gin.H{

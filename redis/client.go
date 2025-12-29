@@ -15,7 +15,13 @@ type MyRedis struct {
 	*redis.Client
 }
 
-func NewRedis(cfg *config.Config, ctx context.Context) *MyRedis {
+type Cache interface {
+	SetCache(key, value string, expire time.Duration, ctx context.Context) error
+	GetCache(key string, ctx context.Context) (string, error)
+	Close() error
+}
+
+func NewRedis(cfg *config.Config, ctx context.Context) Cache {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Pass,
@@ -44,4 +50,12 @@ func (rdb *MyRedis) GetCache(key string, ctx context.Context) (string, error) {
 		return "", err
 	}
 	return val, nil
+}
+
+func (rdb *MyRedis) Close() error {
+	err := rdb.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

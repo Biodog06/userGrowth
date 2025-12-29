@@ -65,7 +65,7 @@ func ValidateToken(tokenString string, err error) (*UserClaims, error) {
 	return nil, err
 }
 
-func JWTMiddleware(rdb *redis.MyRedis) gin.HandlerFunc {
+func JWTMiddleware(rdb redis.Cache) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		tokenString, _ := ctx.Cookie("jwt-token")
 		claims, err := ValidateToken(tokenString, nil)

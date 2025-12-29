@@ -14,6 +14,12 @@ type MyLogger struct {
 	es *MyAsyncEs
 }
 
+func NewNopLogger() *MyLogger {
+	return &MyLogger{
+		Logger: zap.NewNop(),
+	}
+}
+
 func (log *MyLogger) RecordInfoLog(msg string, args ...zap.Field) {
 	log.Log(zap.InfoLevel, msg, args...)
 }
