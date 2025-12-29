@@ -1,16 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	config "usergrowth/configs"
@@ -112,66 +111,53 @@ func day3_check() {
 			defer wg.Done()
 			time.Sleep(1 * time.Second)
 			randomUser := <-testChan
-			data := url.Values{}
-			data.Set("username", randomUser.Name)
-			data.Set("password", randomUser.Pass)
-			resp, err := http.Post("http://localhost:8080/user/register",
-				"application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
-					fmt.Println("not close:", err)
-				}
-			}(resp.Body)
-			// 打印状态码 (int) 和 状态描述 (string)
-			// 1. 读取 Body 的字节数据
-			bodyBytes, err := io.ReadAll(resp.Body)
+
+			// ========== 注册：改用 JSON ==========
+			reqBody := struct {
+				Username string `json:"username"`
+				Password string `json:"password"`
+			}{
+				Username: randomUser.Name,
+				Password: randomUser.Pass,
+			}
+			jsonBody, _ := json.Marshal(reqBody)
+
+			resp, err := http.Post(
+				"http://localhost:8080/user/register",
+				"application/json",        // ✅
+				bytes.NewReader(jsonBody), // ✅
+			)
 			if err != nil {
-				fmt.Println("读取内容失败:", err)
+				fmt.Println("注册请求失败:", err)
 				return
 			}
+			defer resp.Body.Close()
 
-			// 2. 解析 JSON
+			bodyBytes, _ := io.ReadAll(resp.Body)
 			var res CustomResponse
-			err = json.Unmarshal(bodyBytes, &res)
+			_ = json.Unmarshal(bodyBytes, &res)
+			fmt.Printf("[注册] 用户: %s | 密码: %s | 状态码: %d | 消息: %s\n",
+				res.Data.Name, res.Data.Pass, res.Code, res.Msg)
+
+			// ========== 登录：改用 JSON ==========
+			loginBody, _ := json.Marshal(reqBody) // 复用结构体
+			respLogin, err := http.Post(
+				"http://localhost:8080/user/login",
+				"application/json",         // ✅
+				bytes.NewReader(loginBody), // ✅
+			)
 			if err != nil {
-				fmt.Println("解析 JSON 失败:", err)
-				// 如果解析失败，打印原始字符串看看服务器到底返回了什么
-				fmt.Println("原始返回:", string(bodyBytes))
+				fmt.Println("登录请求失败:", err)
 				return
 			}
+			defer respLogin.Body.Close()
 
-			// 3. 拿到 message
-			fmt.Printf("用户: %s | 密码： %s | 状态码: %d | 消息: %s\n", res.Data.Name, res.Data.Pass, res.Code, res.Msg)
-
-			respLogin, _ := http.Post("http://localhost:8080/user/login",
-				"application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
-			defer func(Body io.ReadCloser) {
-				err := Body.Close()
-				if err != nil {
-					fmt.Println("not close:", err)
-				}
-			}(respLogin.Body)
-			// 打印状态码 (int) 和 状态描述 (string)
-			// 1. 读取 Body 的字节数据
-			bodyLoginBytes, err := io.ReadAll(respLogin.Body)
-			if err != nil {
-				fmt.Println("读取内容失败:", err)
-				return
-			}
-
-			// 2. 解析 JSON
+			bodyLoginBytes, _ := io.ReadAll(respLogin.Body)
 			var resLogin CustomResponse
-			err = json.Unmarshal(bodyLoginBytes, &resLogin)
-			if err != nil {
-				fmt.Println("解析 JSON 失败:", err)
-				// 如果解析失败，打印原始字符串看看服务器到底返回了什么
-				fmt.Println("原始返回:", string(bodyBytes))
-				return
-			}
-
-			// 3. 拿到 message
-			fmt.Printf("用户: %s | 密码： %s | 状态码: %d | 消息: %s\n", resLogin.Data.Name, resLogin.Data.Pass, resLogin.Code, resLogin.Msg)
+			_ = json.Unmarshal(bodyLoginBytes, &resLogin)
+			fmt.Printf("[登录] 用户: %s | 密码: %s | 状态码: %d | 消息: %s\n",
+				resLogin.Data.Name, resLogin.Data.Pass, resLogin.Code, resLogin.Msg)
 		}()
 	}
+	//wg.Wait()
 }
