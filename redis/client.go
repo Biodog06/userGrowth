@@ -53,7 +53,7 @@ func (rdb *MyRedis) GetCache(key string, ctx context.Context) (string, error) {
 }
 
 func (rdb *MyRedis) Close() error {
-	err := rdb.Close()
+	err := rdb.Client.Close()
 	if err != nil {
 		return err
 	}

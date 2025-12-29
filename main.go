@@ -42,7 +42,7 @@ func main() {
 	if configPath == "" {
 		configPath = "configs/config.yaml"
 	}
-	c.LoadConfig(configPath)
+	c.LoadConfigWithReflex(configPath)
 
 	redisCtx := context.Background()
 	rdb := redis.NewRedis(c, redisCtx)
@@ -64,7 +64,7 @@ func main() {
 			fmt.Println("not sync:", err)
 		}
 	}(userLogger)
-	day3_check()
+	//day3_check()
 	r := gin.Default()
 	repo := user.NewUserRepository(msq.DB)
 	r.POST("/user/register", user.Register(repo, userLogger))
@@ -77,7 +77,8 @@ func main() {
 		})
 	})
 	r.GET("/eslog", logs.GetLogs(es))
-	err := r.Run(":8080")
+	addr := fmt.Sprintf(":%s", c.App.Port)
+	err := r.Run(addr)
 	if err != nil {
 		return
 	}
@@ -131,7 +132,13 @@ func day3_check() {
 				fmt.Println("注册请求失败:", err)
 				return
 			}
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			}(resp.Body)
 
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			var res CustomResponse
@@ -150,7 +157,13 @@ func day3_check() {
 				fmt.Println("登录请求失败:", err)
 				return
 			}
-			defer respLogin.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			}(respLogin.Body)
 
 			bodyLoginBytes, _ := io.ReadAll(respLogin.Body)
 			var resLogin CustomResponse
