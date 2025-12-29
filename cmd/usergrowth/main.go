@@ -79,7 +79,7 @@ func main() {
 			"msg":  "authenticated",
 		})
 	})
-	r.GET("/api/eslog", logs.GetLogs(es))
+	r.GET("/api/eslog", middleware.JWTMiddleware(rdb), logs.GetLogs(es))
 	addr := fmt.Sprintf(":%s", c.App.Port)
 	err := r.Run(addr)
 	if err != nil {
