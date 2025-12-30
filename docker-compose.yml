@@ -1,0 +1,46 @@
+version: '3'
+services:
+  # 1. Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
+    container_name: es-node01
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  # 2. Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.2.3
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200 # 注意：这里用服务名连接
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  # 3. Filebeat (新增)
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.19.9
+    container_name: filebeat
+    user: root # 使用 root 权限，防止读取不到日志文件
+    volumes:
+      # A. 挂载配置文件: 把当前目录的 filebeat.yml 映射进去
+      - ./configs/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+
+      # B. 挂载日志目录: 把 Windows 的 logs 目录 映射到 容器内的 /var/log/app_logs
+      - ./logs:/var/log/app_logs:ro
+
+    # 禁用权限检查 (解决 Windows 挂载配置文件权限报错的问题)
+    command: ["filebeat", "-e", "--strict.perms=false"]
+
+    depends_on:
+      - elasticsearch
+
+volumes:
+  es_data:

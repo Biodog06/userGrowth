@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -11,95 +12,99 @@ import (
 	"usergrowth/middleware"
 	"usergrowth/redis"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/gogf/gf/v2/net/ghttp"
-	"go.uber.org/zap"
+	"github.com/gogf/gf/v2/frame/g"
 )
 
-func Login(rdb redis.Cache, repo UserRepository, userLogger *logs.MyLogger) func(r *ghttp.Request) {
-	return func(r *ghttp.Request) {
-		var req struct {
-			Username string `json:"username" v:"required#username and password required"`
-			Password string `json:"password" v:"required#username and password required"`
-		}
-		if err := r.Parse(&req); err != nil {
-			var errV validator.ValidationErrors
-			if errors.As(err, &errV) {
-				userLogger.RecordInfoLog("login failed: missing params")
-				r.Response.Status = http.StatusBadRequest
-				r.Response.WriteJson(ghttp.DefaultHandlerResponse{
-					Code:    400,
-					Message: "username and password required",
-				})
-				return
-			}
-			fmt.Println(err)
-			userLogger.RecordInfoLog("login failed: unknown error")
-			r.Response.WriteStatus(http.StatusBadRequest)
-			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
-				Code:    400,
-				Message: "unknown error",
-			})
-			return
-		}
+// LoginReq 登录请求参数
+type LoginReq struct {
+	g.Meta   `path:"/user/login" method:"post"`
+	Username string `json:"username" v:"required#username required"`
+	Password string `json:"password" v:"required#password required"`
+}
 
-		md5Password := md5.Sum([]byte(req.Password))
-		hashPass := hex.EncodeToString(md5Password[:])
+// LoginRes 登录响应结构 (仅用于文档生成，实际返回 nil)
+type LoginRes struct {
+	Name string `json:"name"`
+	Pass string `json:"pass"`
+}
 
-		//MYSQL VERSION
-		if user, err := repo.FindUserByUsername(req.Username); err == nil {
-			if user.Password == hashPass {
-				token, errM := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
-				if errM != nil {
-					fmt.Println(errM)
-					return
-				}
-				fmt.Println(token)
-				r.Cookie.SetHttpCookie(&http.Cookie{
-					Name:     "jwt-token",
-					Value:    token,
-					Path:     "/",
-					MaxAge:   15 * 60,
-					HttpOnly: true,
-					Secure:   false,
-				})
-				if err = rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, r.Context()); err != nil {
-					fmt.Println(err)
-					return
-				}
-				userLogger.Log(zap.InfoLevel, "login success", zap.String("username", req.Username))
-				data := make(map[string]string)
-				data["Name"] = req.Username
-				data["Pass"] = req.Password
-				r.Response.Status = http.StatusOK
-				r.Response.WriteJson(
-					ghttp.DefaultHandlerResponse{
-						Code:    200,
-						Message: req.Username + " login success",
-						Data:    data,
-					})
-			} else {
-				userLogger.RecordInfoLog("login failed: check user or password failed", zap.String("username", req.Username), zap.String("password", req.Password))
-				r.Response.Status = http.StatusUnauthorized
-				r.Response.WriteJson(
-					ghttp.DefaultHandlerResponse{
-						Code:    401,
-						Message: "check user or password failed",
-					})
-			}
-		} else {
-			if errors.Is(err, ErrUserNotFound) {
-				userLogger.RecordInfoLog("login failed: invalid username", zap.String("username", req.Username), zap.String("password", req.Password))
-				r.Response.Status = http.StatusUnauthorized
-				r.Response.WriteJson(
-					ghttp.DefaultHandlerResponse{
-						Code:    401,
-						Message: "invalid username",
-					})
-				return
-			}
-			fmt.Println(err)
-			return
-		}
+type Login struct {
+	rdb        redis.Cache
+	repo       UserRepository
+	userLogger logs.Logger
+}
+
+func NewLogin(rdb redis.Cache, repo UserRepository, logger logs.Logger) *Login {
+	return &Login{
+		rdb:        rdb,
+		repo:       repo,
+		userLogger: logger,
 	}
+}
+
+func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, err error) {
+
+	r := g.RequestFromCtx(ctx)
+
+	md5Password := md5.Sum([]byte(req.Password))
+	hashPass := hex.EncodeToString(md5Password[:])
+
+	user, err := params.repo.FindUserByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			params.userLogger.Info(ctx, fmt.Sprintf("login failed: user not found: %s", req.Username))
+			r.Response.WriteJson(g.Map{
+				"code": http.StatusUnauthorized,
+				"msg":  "invalid username or password",
+				"data": nil,
+			})
+			return nil, nil
+		}
+
+		//params.userLogger.Error(ctx, "login db error", err)
+		return nil, err
+	}
+
+	if user.Password != hashPass {
+		params.userLogger.Info(ctx, fmt.Sprintf("login failed: wrong password: %s", req.Username))
+		r.Response.WriteJson(g.Map{
+			"code": http.StatusUnauthorized,
+			"msg":  "invalid username or password",
+			"data": nil,
+		})
+		return nil, nil
+	}
+
+	token, err := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
+	if err != nil {
+		//params.userLogger.Error(ctx, "generate token error", err)
+		return nil, err
+	}
+
+	r.Cookie.SetHttpCookie(&http.Cookie{
+		Name:     "jwt-token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   15 * 60,
+		HttpOnly: true,
+		Secure:   false,
+	})
+
+	if err = params.rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, ctx); err != nil {
+		//params.userLogger.Error(ctx, "redis set cache error", err)
+		return nil, err
+	}
+
+	params.userLogger.Info(ctx, fmt.Sprintf("login success: %s", req.Username))
+
+	r.Response.WriteJson(g.Map{
+		"code": 200,
+		"msg":  "login success",
+		"data": g.Map{
+			"name":  user.Username,
+			"token": token,
+		},
+	})
+
+	return nil, nil
 }

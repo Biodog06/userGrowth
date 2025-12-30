@@ -1,6 +1,7 @@
 app:
   name: "usergrowth"
   port: 8080
+  logPath: "./logs"
 
 mysql:
   host: "localhost"
@@ -20,7 +21,7 @@ elasticsearch:
   port: 9200
   maxQueueSize: 100
   workers: 3
-  logIndex: "zap-logs"
+  logIndex: "usergrowth-*"
   maxBatchSize: 2
 
 jwt:

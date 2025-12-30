@@ -19,8 +19,9 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name string `yaml:"name"`
-	Port string `yaml:"port" env:"APP_PORT" default:"8080" required:"true"`
+	Name    string `yaml:"name"`
+	Port    string `yaml:"port" env:"APP_PORT" default:"8080" required:"true"`
+	LogPath string `yaml:"logPath" env:"APP_LOG_PATH" default:"./logs/"`
 }
 
 type MySQLConfig struct {
@@ -135,6 +136,7 @@ func (c *Config) setFieldValue(value string, field reflect.Value) {
 func (c *Config) PrintConfig() {
 	fmt.Println("App Name:", c.App.Name)
 	fmt.Println("App Port:", c.App.Port)
+	fmt.Println("App LogPath:", c.App.LogPath)
 	fmt.Println("MySQL Host:", c.MySQL.Host)
 	fmt.Println("MySQL Port:", c.MySQL.Port)
 	fmt.Println("MySQL User:", c.MySQL.User)

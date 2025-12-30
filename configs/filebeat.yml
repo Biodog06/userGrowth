@@ -1,0 +1,46 @@
+filebeat.inputs:
+  # 业务日志
+  - type: filestream
+    id: err-logs
+    enabled: true
+    paths:
+      - /var/log/app_logs/error.log
+    fields:
+      log_topic: "error"
+    fields_under_root: true
+    json.keys_under_root: true
+    json.overwrite_keys: true
+
+  - type: filestream
+    id: user-logs
+    enabled: true
+    paths:
+      - /var/log/app_logs/user.log
+    fields:
+      log_topic: "user"
+    fields_under_root: true
+    json.keys_under_root: true
+    json.overwrite_keys: true
+
+  - type: filestream
+    id: access-logs
+    enabled: true
+    paths:
+      - /var/log/app_logs/access.log
+    fields:
+      log_topic: "access"
+    fields_under_root: true
+    json.keys_under_root: true
+    json.overwrite_keys: true
+
+
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  # 动态索引名：按 topic 和日期分表
+  index: "usergrowth-%{[log_topic]}-%{+yyyy.MM.dd}"
+
+# 禁用默认模板，允许自定义索引名
+setup.ilocm.enabled: false
+setup.template.name: "usergrowth"
+setup.template.pattern: "usergrowth-*"

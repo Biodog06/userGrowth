@@ -17,13 +17,12 @@ type Users struct {
 	Username string `gorm:"type:varchar(255);not null;uniqueIndex"` // 唯一索引
 	Password string `gorm:"type:varchar(255);not null"`
 }
-
+type userRepository struct {
+	db *gorm.DB
+}
 type UserRepository interface {
 	CreateUser(user *Users) error
 	FindUserByUsername(username string) (*Users, error)
-}
-type userRepository struct {
-	db *gorm.DB
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {

@@ -13,32 +13,20 @@ import (
 	"usergrowth/redis"
 
 	"github.com/gogf/gf/v2/frame/g"
-	//"github.com/gogf/gf/v2/net/ghttp"
-	//
-	//"go.uber.org/zap"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
-type testUser struct {
-	Name string
-	Pass string
-}
-type CustomResponse struct {
-	Code int      `json:"code"`
-	Msg  string   `json:"message"`
-	Data testUser `json:"data"`
-}
-
 func main() {
-	c := config.NewConfig()
+	cfg := config.NewConfig()
 	configPath := os.Getenv("configPath")
-	fmt.Println("Config Path:", configPath)
 	if configPath == "" {
 		configPath = "configs/config.yaml"
 	}
-	c.LoadConfigWithReflex(configPath)
+	fmt.Println("Config Path:", configPath)
+	cfg.LoadConfigWithReflex(configPath)
 
 	redisCtx := context.Background()
-	rdb := redis.NewRedis(c, redisCtx)
+	rdb := redis.NewRedis(cfg, redisCtx)
 	defer func(rdb redis.Cache) {
 		err := rdb.Close()
 		if err != nil {
@@ -46,24 +34,27 @@ func main() {
 		}
 	}(rdb)
 
-	msq := mysql.NewDB(c)
-	es := logs.NewEsClient(c)
-	middleware.InitJWT(c)
+	msq := mysql.NewDB(cfg)
 
-	userLogger := logs.InitLoggerWithES("logs/user.log", c, es)
-	defer func(userLogger *logs.MyLogger) {
-		err := userLogger.Sync()
-		if err != nil {
-			fmt.Println("not sync:", err)
-		}
-	}(userLogger)
+	middleware.InitJWT(cfg)
+
+	userLogger := logs.NewUserLogger(cfg.App.LogPath)
 
 	s := g.Server()
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
-	//s.AddStaticPath("/eslog.html", "./static/eslog.html")
-	s.BindHandler("/user/register", user.Register(repo, userLogger))
-	s.BindHandler("/user/login", user.Login(rdb, repo, userLogger))
+	registerParam := user.NewRegister(repo, userLogger)
+	loginParam := user.NewLogin(rdb, repo, userLogger)
+	errorManager := middleware.NewErrorManager(cfg.App.LogPath)
+	loggerManager := middleware.NewLoggerManager(cfg.App.LogPath)
+	s.Group("/", func(group *ghttp.RouterGroup) {
+		group.Middleware(errorManager.ErrorHandler)
+		group.Middleware(loggerManager.AccessHandler)
+		group.Bind(registerParam)
+		group.Bind(loginParam)
+	})
+	es := logs.NewEsClient(cfg)
+	s.BindHandler("/api/eslog", logs.GetLogs(es))
 	//r.GET("/api/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
 	//	userLogger.RecordInfoLog("check auth on /api/authcheck", zap.String("username", ctx.PostForm("username")))
 	//	ctx.JSON(http.StatusOK, gin.H{
@@ -71,8 +62,7 @@ func main() {
 	//		"msg":  "authenticated",
 	//	})
 	//})
-	//s.BindHandler("/api/eslog", logs.GetLogs(es))
-	port, err := strconv.Atoi(c.App.Port)
+	port, err := strconv.Atoi(cfg.App.Port)
 	if err != nil {
 		fmt.Println(err)
 		return
