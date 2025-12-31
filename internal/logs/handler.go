@@ -13,7 +13,7 @@ type JsonOutputsForLogger struct {
 	Timestamp string `json:"@timestamp"`
 	TraceId   string `json:"trace_id"`
 	Level     string `json:"level"`
-	Content   string `json:"content"`
+	Content   string `json:"message"`
 }
 
 var LoggingJsonHandler glog.Handler = func(ctx context.Context, in *glog.HandlerInput) {

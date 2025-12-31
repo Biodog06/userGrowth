@@ -13,6 +13,17 @@ type LoggerManager struct {
 	accLogger logs.Logger
 }
 
+type Content struct {
+	AccBody        string        `json:"body"`
+	AccMethod      string        `json:"method"`
+	AccPath        string        `json:"path"`
+	AccIP          string        `json:"ip"`
+	AccUA          string        `json:"ua"`
+	AllParamString string        `json:"parms"`
+	AccResp        int           `json:"resp"`
+	AccDura        time.Duration `json:"dura"`
+}
+
 func NewLoggerManager(loggerPath string) *LoggerManager {
 	return &LoggerManager{logs.NewAccLogger(loggerPath)}
 }
@@ -41,19 +52,22 @@ func (lm *LoggerManager) AccessHandler(r *ghttp.Request) {
 	duration := time.Since(startTime)
 
 	accResp := r.Response.Status
-	logContent := fmt.Sprintf(
-		"method:%s path:%s status:%d ip:%s cost:%v params:%s body:%s ua:%s",
-		accMethod,
-		accPath,
-		accResp,
-		accIP,
-		duration,     // 耗时
-		accParamsStr, // 这里是 {"username":"..."} 这样的字符串
-		accBody,      // 请求体
-		accUA,
-	)
+	logContent := Content{
+		AccBody:        accBody,
+		AccMethod:      accMethod,
+		AccPath:        accPath,
+		AccIP:          accIP,
+		AccUA:          accUA,
+		AllParamString: accParamsStr,
+		AccResp:        accResp,
+		AccDura:        duration,
+	}
+	encodeContent, err := json.Marshal(logContent)
+	if err != nil {
+		r.SetError(err) // 将错误传递给上下文，以便 ErrorHandler 捕获
+		return
+	}
 
-	// 7. 写入日志
-	lm.accLogger.Debug(ctx, logContent)
-
+	lm.accLogger.Debug(ctx, encodeContent)
+	fmt.Println(string(encodeContent))
 }

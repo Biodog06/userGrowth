@@ -43,25 +43,26 @@ func main() {
 	s := g.Server()
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
-	registerParam := user.NewRegister(repo, userLogger)
-	loginParam := user.NewLogin(rdb, repo, userLogger)
+	registerController := user.NewRegister(repo, userLogger)
+	loginController := user.NewLogin(rdb, repo, userLogger)
 	errorManager := middleware.NewErrorManager(cfg.App.LogPath)
 	loggerManager := middleware.NewLoggerManager(cfg.App.LogPath)
+	jwtManager := middleware.NewJWTManager(rdb, userLogger)
+	esController := logs.NewEsController(cfg)
+	authController := user.NewAuthController(userLogger)
+
 	s.Group("/", func(group *ghttp.RouterGroup) {
 		group.Middleware(errorManager.ErrorHandler)
 		group.Middleware(loggerManager.AccessHandler)
-		group.Bind(registerParam)
-		group.Bind(loginParam)
+		group.Bind(registerController)
+		group.Bind(loginController)
+		// group.Bind(esController)
 	})
-	es := logs.NewEsClient(cfg)
-	s.BindHandler("/api/eslog", logs.GetLogs(es))
-	//r.GET("/api/authcheck", middleware.JWTMiddleware(rdb), func(ctx *gin.Context) {
-	//	userLogger.RecordInfoLog("check auth on /api/authcheck", zap.String("username", ctx.PostForm("username")))
-	//	ctx.JSON(http.StatusOK, gin.H{
-	//		"code": 200,
-	//		"msg":  "authenticated",
-	//	})
-	//})
+	s.Group("/", func(group *ghttp.RouterGroup) {
+		group.Middleware(jwtManager.JWTHandler)
+		group.Bind(esController)
+		group.Bind(authController)
+	})
 	port, err := strconv.Atoi(cfg.App.Port)
 	if err != nil {
 		fmt.Println(err)

@@ -15,17 +15,13 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// LoginReq 登录请求参数
 type LoginReq struct {
 	g.Meta   `path:"/user/login" method:"post"`
 	Username string `json:"username" v:"required#username required"`
 	Password string `json:"password" v:"required#password required"`
 }
 
-// LoginRes 登录响应结构 (仅用于文档生成，实际返回 nil)
 type LoginRes struct {
-	Name string `json:"name"`
-	Pass string `json:"pass"`
 }
 
 type Login struct {
@@ -53,10 +49,11 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			params.userLogger.Info(ctx, fmt.Sprintf("login failed: user not found: %s", req.Username))
+			r.Response.WriteStatus(http.StatusUnauthorized)
 			r.Response.WriteJson(g.Map{
-				"code": http.StatusUnauthorized,
-				"msg":  "invalid username or password",
-				"data": nil,
+				"code":    http.StatusUnauthorized,
+				"message": "invalid username or password",
+				"data":    nil,
 			})
 			return nil, nil
 		}
@@ -67,10 +64,11 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 
 	if user.Password != hashPass {
 		params.userLogger.Info(ctx, fmt.Sprintf("login failed: wrong password: %s", req.Username))
+		r.Response.WriteStatus(http.StatusUnauthorized)
 		r.Response.WriteJson(g.Map{
-			"code": http.StatusUnauthorized,
-			"msg":  "invalid username or password",
-			"data": nil,
+			"code":    http.StatusUnauthorized,
+			"message": "invalid username or password",
+			"data":    nil,
 		})
 		return nil, nil
 	}
@@ -98,8 +96,8 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	params.userLogger.Info(ctx, fmt.Sprintf("login success: %s", req.Username))
 
 	r.Response.WriteJson(g.Map{
-		"code": 200,
-		"msg":  "login success",
+		"code":    200,
+		"message": "login success",
 		"data": g.Map{
 			"name":  user.Username,
 			"token": token,

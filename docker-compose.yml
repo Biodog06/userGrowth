@@ -24,6 +24,8 @@ services:
     depends_on:
       - elasticsearch
 
+  # Logstash 已移除，Filebeat 直连 ES
+
   # 3. Filebeat (新增)
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.19.9
@@ -42,5 +44,30 @@ services:
     depends_on:
       - elasticsearch
 
+  # 4. MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_DATABASE=usergrowth
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+
+  # 5. Redis
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass 123456
+
 volumes:
   es_data:
+  mysql_data:
+  redis_data:

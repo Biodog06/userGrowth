@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"net/http"
 	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -16,8 +17,6 @@ type RegisterReq struct {
 	Password string `json:"password" v:"required#password and password required"`
 }
 type RegisterRes struct {
-	Name string `json:"name"`
-	Pass string `json:"pass"`
 }
 
 type Register struct {
@@ -44,10 +43,11 @@ func (params Register) Register(ctx context.Context, req *RegisterReq) (res *Reg
 		if errors.Is(err, ErrDuplicateUser) {
 			params.userLogger.Info(ctx, "duplicate registration", req.Username)
 
+			r.Response.WriteStatus(http.StatusBadRequest)
 			r.Response.WriteJson(g.Map{
-				"code": 400,     // 业务错误码
-				"msg":  "用户已存在", // 错误提示
-				"data": nil,
+				"code":    400,     // 业务错误码
+				"message": "用户已存在", // 错误提示
+				"data":    nil,
 			})
 
 			return nil, nil
@@ -61,8 +61,8 @@ func (params Register) Register(ctx context.Context, req *RegisterReq) (res *Reg
 	params.userLogger.Info(ctx, "register success", req.Username)
 
 	r.Response.WriteJson(g.Map{
-		"code": 200,
-		"msg":  "register success",
+		"code":    200,
+		"message": "register success",
 		"data": g.Map{
 			"name": req.Username,
 			"pass": hashPass,

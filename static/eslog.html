@@ -68,9 +68,7 @@
         <el-table-column label="日志内容" min-width="400">
             <template #default="scope">
                 <!-- 尝试 message, msg, content 等常见字段 -->
-                <code style="word-break: break-all;">
-                    {{ scope.row.message || scope.row.msg || scope.row.content || JSON.stringify(scope.row) }}
-                </code>
+                <pre style="margin:0; white-space: pre-wrap; word-break: break-all; font-family: Consolas, monospace;">{{ formatContent(scope.row) }}</pre>
             </template>
         </el-table-column>
         <el-table-column prop="caller" label="调用者" width="200" show-overflow-tooltip></el-table-column>
@@ -131,7 +129,7 @@
                     }
                 } catch (err) {
                     console.error(err);
-                    ElementPlus.ElMessage.error('获取日志失败: ' + (err.response?.data?.error || '服务器错误'));
+                    ElementPlus.ElMessage.error('获取日志失败: ' + (err.response?.data?.message || '服务器错误'));
                 } finally {
                     loading.value = false;
                 }
@@ -164,6 +162,26 @@
                 return new Date(ts).toLocaleString();
             };
 
+            const formatContent = (row) => {
+                let content = row.message || row.msg || row.content;
+                if (!content) {
+                    return JSON.stringify(row, null, 2);
+                }
+                // 尝试解析 JSON
+                if (typeof content === 'string') {
+                    try {
+                        const parsed = JSON.parse(content);
+                        return JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        // 不是 JSON，直接返回
+                        return content;
+                    }
+                } else if (typeof content === 'object') {
+                    return JSON.stringify(content, null, 2);
+                }
+                return content;
+            };
+
             const handleLogout = () => {
                 window.location.href = '/login.html';
             };
@@ -174,7 +192,7 @@
 
             return {
                 loading, logData, total, queryParam, dateRange,
-                fetchLogs, handleSearch, resetQuery, getLevelType, formatTime, handleLogout
+                fetchLogs, handleSearch, resetQuery, getLevelType, formatTime, formatContent, handleLogout
             };
         }
     }).use(ElementPlus).mount('#app');

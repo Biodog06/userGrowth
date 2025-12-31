@@ -27,6 +27,7 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 			m.errorLogger.Error(ctx, errorMsg)
 			r.Response.ClearBuffer()
 
+			r.Response.WriteStatus(http.StatusInternalServerError)
 			r.Response.WriteJson(
 				ghttp.DefaultHandlerResponse{
 					Code:    http.StatusInternalServerError,
@@ -42,6 +43,7 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 		if gerror.Code(err) == gcode.CodeValidationFailed {
 			m.errorLogger.Info(ctx, "validation failed: ", err)
 			r.Response.ClearBuffer()
+			r.Response.WriteStatus(http.StatusBadRequest)
 			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
 				Code:    http.StatusBadRequest,
 				Message: err.Error(),
@@ -49,13 +51,17 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 			})
 		} else {
 			m.errorLogger.Error(ctx, "internal error: ", err)
-			r.Response.ClearBuffer()
-			r.Response.WriteJson(
-				ghttp.DefaultHandlerResponse{
-					Code:    http.StatusInternalServerError,
-					Message: "服务器繁忙，请稍后再试",
-					Data:    nil,
-				})
+			// 如果 Controller 还没有写入响应，则返回默认错误
+			if r.Response.BufferLength() == 0 {
+				r.Response.ClearBuffer()
+				r.Response.WriteStatus(http.StatusInternalServerError)
+				r.Response.WriteJson(
+					ghttp.DefaultHandlerResponse{
+						Code:    http.StatusInternalServerError,
+						Message: "服务器繁忙，请稍后再试",
+						Data:    nil,
+					})
+			}
 		}
 	}
 }
