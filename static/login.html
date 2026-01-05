@@ -44,6 +44,8 @@
                         setTimeout(() => {
                             window.location.href = '/eslog.html';
                         }, 1000);
+                    } else {
+                        ElementPlus.ElMessage.error(res.data.message || res.data.msg || '登录失败');
                     }
                 } catch (err) {
                     console.error("Login Error:", err);

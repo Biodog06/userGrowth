@@ -71,6 +71,8 @@
                 window.location.href = '/login.html'; // 跳转到登录页
               }
             });
+          } else {
+            ElementPlus.ElMessage.error(res.data.message || res.data.msg || '注册失败');
           }
         } catch (err) {
           // 3. 处理后端返回的错误（如用户已存在）

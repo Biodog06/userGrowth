@@ -19,6 +19,7 @@ type EsLogsReq struct {
 	g.Meta    `path:"/api/eslog" method:"get"`
 	Keyword   string `p:"keyword"`     // 关键词
 	Level     string `p:"level"`       // 日志级别
+	Topic     string `p:"topic"`       // 日志主题
 	StartTime string `p:"start_time"`  // 开始时间
 	EndTime   string `p:"end_time"`    // 结束时间
 	Page      int    `p:"page" d:"1"`  // 页码，默认1
@@ -85,6 +86,12 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 	if req.Level != "" {
 		filterList = append(filterList, g.Map{
 			"term": g.Map{"level": req.Level},
+		})
+	}
+
+	if req.Topic != "" {
+		filterList = append(filterList, g.Map{
+			"term": g.Map{"log_topic": req.Topic},
 		})
 	}
 

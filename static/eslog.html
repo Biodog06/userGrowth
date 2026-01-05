@@ -29,6 +29,9 @@
             <el-form-item label="关键词">
                 <el-input v-model="queryParam.keyword" placeholder="搜索消息内容" clearable @keyup.enter="handleSearch"></el-input>
             </el-form-item>
+            <el-form-item label="Topic">
+                <el-input v-model="queryParam.topic" placeholder="输入Topic筛选" clearable @keyup.enter="handleSearch"></el-input>
+            </el-form-item>
             <el-form-item label="级别">
                 <el-select v-model="queryParam.level" placeholder="全部级别" clearable style="width: 120px;">
                     <el-option label="INFO" value="info"></el-option>
@@ -72,6 +75,8 @@
             </template>
         </el-table-column>
 
+        <el-table-column prop="log_topic" label="Topic" width="150" show-overflow-tooltip></el-table-column>
+
         <!-- 修改 内容列 -->
         <el-table-column label="日志内容" min-width="400">
             <template #default="scope">
@@ -109,6 +114,7 @@
             const queryParam = reactive({
                 keyword: '',
                 level: '',
+                topic: '',
                 start_time: '',
                 end_time: '',
                 page: 1,
@@ -158,6 +164,7 @@
             const resetQuery = () => {
                 queryParam.keyword = '';
                 queryParam.level = '';
+                queryParam.topic = '';
                 queryParam.page = 1;
                 dateRange.value = [];
                 fetchLogs();
