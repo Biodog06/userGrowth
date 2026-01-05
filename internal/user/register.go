@@ -5,10 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"net/http"
 	"usergrowth/internal/logs"
 
+	"github.com/gogf/gf/v2/errors/gcode"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/gtrace"
 )
 
 type RegisterReq struct {
@@ -30,6 +32,9 @@ func NewRegister(repo UserRepository, logger logs.Logger) *Register {
 
 func (params Register) Register(ctx context.Context, req *RegisterReq) (res *RegisterRes, err error) {
 
+	ctx, span := gtrace.NewSpan(ctx, "Register")
+	defer span.End()
+
 	r := g.RequestFromCtx(ctx)
 
 	sum := md5.Sum([]byte(req.Password))
@@ -41,16 +46,7 @@ func (params Register) Register(ctx context.Context, req *RegisterReq) (res *Reg
 
 	if err = params.repo.CreateUser(user); err != nil {
 		if errors.Is(err, ErrDuplicateUser) {
-			params.userLogger.Info(ctx, "duplicate registration", req.Username)
-
-			r.Response.WriteStatus(http.StatusBadRequest)
-			r.Response.WriteJson(g.Map{
-				"code":    400,     // 业务错误码
-				"message": "用户已存在", // 错误提示
-				"data":    nil,
-			})
-
-			return nil, nil
+			return nil, gerror.NewCode(gcode.CodeValidationFailed, "用户已存在")
 		}
 
 		// 系统错误（交给中间件处理）

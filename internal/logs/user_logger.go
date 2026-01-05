@@ -35,3 +35,7 @@ func (userLog *UserLogger) Debug(ctx context.Context, v ...any) {
 func (userLog *UserLogger) Error(ctx context.Context, v ...any) {
 	userLog.log.Error(ctx, v...)
 }
+
+func (userLog *UserLogger) Fatal(ctx context.Context, v ...any) {
+	userLog.log.Fatal(ctx, v...)
+}

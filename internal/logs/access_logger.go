@@ -35,3 +35,7 @@ func (accLog *AccessLogger) Debug(ctx context.Context, v ...any) {
 func (accLog *AccessLogger) Error(ctx context.Context, v ...any) {
 	accLog.log.Error(ctx, v...)
 }
+
+func (accLog *AccessLogger) Fatal(ctx context.Context, v ...any) {
+	accLog.log.Fatal(ctx, v...)
+}

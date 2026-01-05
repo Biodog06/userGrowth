@@ -25,6 +25,7 @@ type Config struct {
 	Elasticsearch ElasticsearchConfig `yaml:"elasticsearch"`
 	JWT           JWTConfig           `yaml:"jwt"`
 	Middleware    MiddlewareConfig    `yaml:"middleware"`
+	Tracing       TracingConfig       `yaml:"tracing"`
 }
 
 type MiddlewareConfig struct {
@@ -65,6 +66,12 @@ type ElasticsearchConfig struct {
 type JWTConfig struct {
 	Secret string        `yaml:"secret" default:"test"`
 	Expire time.Duration `yaml:"expire" default:"1h"`
+}
+
+type TracingConfig struct {
+	Endpoint    string `yaml:"endpoint" required:"true"`
+	Path        string `yaml:"path" default:"/v1/traces"`
+	ServiceName string `yaml:"serviceName" default:"gf-growth"`
 }
 
 func NewConfigManager() *ConfigManager {
@@ -176,4 +183,7 @@ func (c *ConfigManager) PrintConfig() {
 	fmt.Println("Elasticsearch Host:", c.Config.Elasticsearch.Host)
 	fmt.Println("JWT Secret:", c.Config.JWT.Secret)
 	fmt.Println("JWT Expire:", c.Config.JWT.Expire)
+	fmt.Println("Tracing Endpoint:", c.Config.Tracing.Endpoint)
+	fmt.Println("Tracing Path:", c.Config.Tracing.Path)
+	fmt.Println("Tracing ServiceName:", c.Config.Tracing.ServiceName)
 }

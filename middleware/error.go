@@ -10,6 +10,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/net/gtrace"
 )
 
 type ErrorManager struct {
@@ -17,9 +18,9 @@ type ErrorManager struct {
 	cfg         *config.MiddlewareConfig
 }
 
-func NewErrorManager(loggerPath string, cfg *config.MiddlewareConfig) *ErrorManager {
+func NewErrorManager(loggerPath string, cfg *config.MiddlewareConfig, errorLogger logs.ErrorLogger) *ErrorManager {
 	return &ErrorManager{
-		errorLogger: logs.NewErrorLogger(loggerPath),
+		errorLogger: errorLogger,
 		cfg:         cfg,
 	}
 }
@@ -30,6 +31,10 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 		return
 	}
 	ctx := r.GetCtx()
+	ctx, span := gtrace.NewSpan(ctx, "Middleware.ErrorHandler")
+	defer span.End()
+	r.SetCtx(ctx)
+
 	defer func() {
 		if exception := recover(); exception != nil {
 			errorMsg := fmt.Sprintf("SERVER PANIC: %v\n%s", exception, debug.Stack())
@@ -49,7 +54,9 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 	err := r.GetError()
 
 	if err != nil {
-		if gerror.Code(err) == gcode.CodeValidationFailed {
+		code := gerror.Code(err)
+		switch code {
+		case gcode.CodeValidationFailed:
 			m.errorLogger.Info(ctx, "validation failed: ", err)
 			r.Response.ClearBuffer()
 			r.Response.WriteStatus(http.StatusBadRequest)
@@ -58,7 +65,16 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 				Message: err.Error(),
 				Data:    nil,
 			})
-		} else {
+		case gcode.CodeNotAuthorized:
+			m.errorLogger.Info(ctx, "authorization failed: ", err)
+			r.Response.ClearBuffer()
+			r.Response.WriteStatus(http.StatusUnauthorized)
+			r.Response.WriteJson(ghttp.DefaultHandlerResponse{
+				Code:    http.StatusUnauthorized,
+				Message: err.Error(),
+				Data:    nil,
+			})
+		default:
 			m.errorLogger.Error(ctx, "internal error: ", err)
 			// 如果 Controller 还没有写入响应，则返回默认错误
 			if r.Response.BufferLength() == 0 {

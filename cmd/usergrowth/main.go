@@ -7,6 +7,7 @@ import (
 	"strconv"
 	config "usergrowth/configs"
 	"usergrowth/internal/logs"
+	"usergrowth/internal/observability"
 	"usergrowth/internal/user"
 	"usergrowth/middleware"
 	"usergrowth/mysql"
@@ -39,7 +40,9 @@ func main() {
 	middleware.InitJWT(cfg.Config)
 
 	userLogger := logs.NewUserLogger(cfg.Config.App.LogPath)
-
+	errorLogger := logs.NewErrorLogger(cfg.Config.App.LogPath)
+	shutdown := observability.InitTracer(cfg.Config.Tracing.ServiceName, cfg.Config.Tracing.Endpoint, cfg.Config.Tracing.Path, userLogger)
+	defer shutdown()
 	s := g.Server()
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
@@ -52,8 +55,8 @@ func main() {
 	authController := user.NewAuthController(userLogger)
 
 	s.Group("/", func(group *ghttp.RouterGroup) {
-		group.Middleware(errorManager.ErrorHandler)
-		group.Middleware(loggerManager.AccessHandler)
+		group.Middleware(middleware.Trace)
+		group.Middleware(errorManager.ErrorHandler, loggerManager.AccessHandler)
 		group.Bind(registerController)
 		group.Bind(loginController)
 		// group.Bind(esController)

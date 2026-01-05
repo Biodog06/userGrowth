@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -42,7 +41,6 @@ func (repo *userRepository) CreateUser(user *Users) error {
 				return ErrDuplicateUser
 			}
 		} else {
-			fmt.Println(err)
 			return err
 		}
 	}

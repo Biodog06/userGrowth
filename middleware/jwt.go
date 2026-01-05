@@ -9,7 +9,9 @@ import (
 	"usergrowth/redis"
 
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/net/gtrace"
 	"github.com/golang-jwt/jwt/v5"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var jwtSecret []byte
@@ -40,7 +42,7 @@ func InitJWT(cfg *config.Config) {
 		jwtSecret = []byte("secret")
 	}
 	jwtExpireTime = cfg.JWT.Expire
-	fmt.Println("JWT Secret:", jwtSecret)
+	fmt.Println("JWT Secret:", string(jwtSecret))
 	fmt.Println("jwtExpireTime:", jwtExpireTime)
 }
 
@@ -86,11 +88,13 @@ func (m *JWTManager) JWTHandler(r *ghttp.Request) {
 	}
 	tokenString := r.Cookie.Get("jwt-token").String()
 	ctx := r.GetCtx()
+	ctx, span := gtrace.NewSpan(ctx, "Middleware.JWTHandler")
+	defer span.End()
+	r.SetCtx(ctx)
 
 	// 如果没有 Token，直接返回未授权，不要进入验证逻辑
 	if tokenString == "" {
-		// 记录无 Token 访问尝试（可选，取决于是否认为这是异常行为）
-		// m.userLogger.Info(ctx, "access denied: missing token", "ip", r.GetClientIp())
+		m.userLogger.Info(ctx, "access denied: missing token", "ip", r.GetClientIp())
 		r.Response.WriteStatus(http.StatusUnauthorized)
 		r.Response.WriteJson(ghttp.DefaultHandlerResponse{
 			Code:    http.StatusUnauthorized,
@@ -130,6 +134,7 @@ func (m *JWTManager) JWTHandler(r *ghttp.Request) {
 	}
 	if cache == claims.UserId {
 		r.SetCtxVar("userid", claims.UserId)
+		span.SetAttributes(attribute.String("user.id", claims.UserId))
 	}
 
 	r.Middleware.Next()

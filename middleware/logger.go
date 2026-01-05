@@ -8,6 +8,7 @@ import (
 	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/net/gtrace"
 )
 
 type LoggerManager struct {
@@ -39,6 +40,10 @@ func (lm *LoggerManager) AccessHandler(r *ghttp.Request) {
 		return
 	}
 	ctx := r.GetCtx()
+	ctx, span := gtrace.NewSpan(ctx, "Middleware.AccessHandler")
+	defer span.End()
+	r.SetCtx(ctx)
+
 	accBody := r.GetBodyString()
 	accMethod := r.Method
 	accPath := r.URL.Path

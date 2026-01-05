@@ -19,6 +19,7 @@ type JsonOutputsForLogger struct {
 var LoggingJsonHandler glog.Handler = func(ctx context.Context, in *glog.HandlerInput) {
 	jsonForLogger := JsonOutputsForLogger{
 		Timestamp: in.TimeFormat,
+		TraceId:   in.TraceId,
 		Level:     gstr.Trim(in.LevelFormat, "[]"),
 		Content:   gstr.Trim(in.ValuesContent()),
 	}

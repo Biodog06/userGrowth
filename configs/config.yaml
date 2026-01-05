@@ -31,3 +31,8 @@ middleware:
   error: true
   access: true
   jwt: true
+
+tracing:
+  endpoint: "localhost:4318"
+  path: "/v1/traces"
+  serviceName: "gf-growth"

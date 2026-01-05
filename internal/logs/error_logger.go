@@ -34,3 +34,7 @@ func (errorLogger ErrorLogger) Debug(ctx context.Context, v ...any) {
 func (errorLogger ErrorLogger) Error(ctx context.Context, v ...any) {
 	errorLogger.log.Error(ctx, v...)
 }
+
+func (errorLogger ErrorLogger) Fatal(ctx context.Context, v ...any) {
+	errorLogger.log.Fatal(ctx, v...)
+}

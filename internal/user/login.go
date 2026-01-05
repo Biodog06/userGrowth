@@ -12,7 +12,11 @@ import (
 	"usergrowth/middleware"
 	"usergrowth/redis"
 
+	"github.com/gogf/gf/v2/errors/gcode"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/gtrace"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type LoginReq struct {
@@ -39,6 +43,8 @@ func NewLogin(rdb redis.Cache, repo UserRepository, logger logs.Logger) *Login {
 }
 
 func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, err error) {
+	ctx, span := gtrace.NewSpan(ctx, "Login")
+	defer span.End()
 
 	r := g.RequestFromCtx(ctx)
 
@@ -48,14 +54,7 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	user, err := params.repo.FindUserByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			params.userLogger.Info(ctx, fmt.Sprintf("login failed: user not found: %s", req.Username))
-			r.Response.WriteStatus(http.StatusUnauthorized)
-			r.Response.WriteJson(g.Map{
-				"code":    http.StatusUnauthorized,
-				"message": "invalid username or password",
-				"data":    nil,
-			})
-			return nil, nil
+			return nil, gerror.NewCode(gcode.CodeNotAuthorized, "invalid username or password")
 		}
 
 		//params.userLogger.Error(ctx, "login db error", err)
@@ -63,14 +62,7 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	}
 
 	if user.Password != hashPass {
-		params.userLogger.Info(ctx, fmt.Sprintf("login failed: wrong password: %s", req.Username))
-		r.Response.WriteStatus(http.StatusUnauthorized)
-		r.Response.WriteJson(g.Map{
-			"code":    http.StatusUnauthorized,
-			"message": "invalid username or password",
-			"data":    nil,
-		})
-		return nil, nil
+		return nil, gerror.NewCode(gcode.CodeNotAuthorized, "invalid username or password")
 	}
 
 	token, err := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
@@ -93,7 +85,9 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 		return nil, err
 	}
 
-	params.userLogger.Info(ctx, fmt.Sprintf("login success: %s", req.Username))
+	span.SetAttributes(attribute.String("user.id", strconv.Itoa(int(user.UserID))))
+
+	params.userLogger.Info(ctx, fmt.Sprintf("login success: %s", req.Username), "userid", user.UserID)
 
 	r.Response.WriteJson(g.Map{
 		"code":    200,
@@ -114,19 +108,40 @@ type LogoutRes struct {
 }
 
 func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes, err error) {
+	ctx, span := gtrace.NewSpan(ctx, "Logout")
+	defer span.End()
+
 	r := g.RequestFromCtx(ctx)
 	tokenString := r.Cookie.Get("jwt-token").String()
 
+	var userId string
 	if tokenString == "" {
 		params.userLogger.Info(ctx, "Logout: Failed to get cookie or token is empty")
 	} else {
+		// Try to get userId from Redis before deleting
+		val, err := params.rdb.GetCache(tokenString, ctx)
+		if err == nil {
+			userId = val
+		} else {
+			claims, err1 := middleware.ValidateToken(tokenString)
+			if err1 == nil {
+				userId = claims.UserId
+			} else {
+				params.userLogger.Info(ctx, fmt.Sprintf("Logout: Failed to validate token: %v", err1))
+			}
+		}
+
 		params.userLogger.Info(ctx, fmt.Sprintf("Logout: Got token from cookie: %s", tokenString))
-		err := params.rdb.DeleteCache(tokenString, ctx)
+		err = params.rdb.DeleteCache(tokenString, ctx)
 		if err != nil {
 			params.userLogger.Info(ctx, fmt.Sprintf("Logout: Failed to delete from redis: %v", err))
 		} else {
 			params.userLogger.Info(ctx, "Logout: Successfully deleted from redis")
 		}
+	}
+
+	if userId != "" {
+		span.SetAttributes(attribute.String("user.id", userId))
 	}
 
 	r.Cookie.SetHttpCookie(&http.Cookie{
@@ -138,7 +153,7 @@ func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes
 		Secure:   false,
 	})
 
-	params.userLogger.Info(ctx, "user logout")
+	params.userLogger.Info(ctx, "user logout", "userid", userId)
 	r.Response.WriteJson(g.Map{
 		"code":    200,
 		"message": "logout success",
