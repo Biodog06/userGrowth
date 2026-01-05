@@ -2,10 +2,8 @@ package user
 
 import (
 	"context"
-	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 type AuthReq struct {
@@ -18,11 +16,10 @@ type AuthRes struct {
 }
 
 type AuthController struct {
-	userLogger logs.Logger
 }
 
-func NewAuthController(userLogger logs.Logger) *AuthController {
-	return &AuthController{userLogger: userLogger}
+func NewAuthController() *AuthController {
+	return &AuthController{}
 }
 
 func (c *AuthController) Check(ctx context.Context, req *AuthReq) (res *AuthRes, err error) {
@@ -31,12 +28,10 @@ func (c *AuthController) Check(ctx context.Context, req *AuthReq) (res *AuthRes,
 	username := r.GetCtxVar("username").String()
 	userid := r.GetCtxVar("userid").String()
 
-	c.userLogger.Info(ctx, "check auth success", "username", username, "userid", userid)
-
-	r.Response.WriteJson(ghttp.DefaultHandlerResponse{
-		Code:    200,
-		Message: "authenticated",
-		Data: &AuthRes{
+	r.Response.WriteJson(g.Map{
+		"code":    200,
+		"message": "authenticated",
+		"data": &AuthRes{
 			Username: username,
 			UserID:   userid,
 		},

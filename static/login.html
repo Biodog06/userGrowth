@@ -46,7 +46,18 @@
                         }, 1000);
                     }
                 } catch (err) {
-                    ElementPlus.ElMessage.error(err.response?.data?.message || '登录失败');
+                    console.error("Login Error:", err);
+                    let errorMsg = '登录失败';
+                    if (err.response && err.response.data) {
+                        if (err.response.data.message) {
+                            errorMsg = err.response.data.message;
+                        } else if (err.response.data.msg) {
+                            errorMsg = err.response.data.msg;
+                        }
+                    } else if (err.message) {
+                        errorMsg = err.message;
+                    }
+                    ElementPlus.ElMessage.error(errorMsg);
                 }
             };
             return { form, doLogin };

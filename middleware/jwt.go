@@ -81,6 +81,16 @@ func ValidateToken(tokenString string) (*UserClaims, error) {
 	return nil, fmt.Errorf("token is nil")
 }
 
+func ParseTokenUnverified(tokenString string) (*UserClaims, error) {
+	claims := &UserClaims{}
+	parser := jwt.NewParser()
+	_, _, err := parser.ParseUnverified(tokenString, claims)
+	if err != nil {
+		return nil, err
+	}
+	return claims, nil
+}
+
 func (m *JWTManager) JWTHandler(r *ghttp.Request) {
 	if !m.cfg.JWT {
 		r.Middleware.Next()

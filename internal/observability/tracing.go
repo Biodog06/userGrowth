@@ -13,7 +13,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
-func InitTracer(serviceName, endpoint, path string, errorLogger logs.ErrorLogger) func() {
+func InitTracer(serviceName, endpoint, path string, errorLogger logs.Logger) func() {
 
 	exporter, err1 := otlptracehttp.New(
 		context.Background(),

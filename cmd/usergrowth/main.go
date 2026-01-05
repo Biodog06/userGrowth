@@ -41,24 +41,26 @@ func main() {
 
 	userLogger := logs.NewUserLogger(cfg.Config.App.LogPath)
 	errorLogger := logs.NewErrorLogger(cfg.Config.App.LogPath)
-	shutdown := observability.InitTracer(cfg.Config.Tracing.ServiceName, cfg.Config.Tracing.Endpoint, cfg.Config.Tracing.Path, userLogger)
+	shutdown := observability.InitTracer(cfg.Config.Tracing.ServiceName, cfg.Config.Tracing.Endpoint, cfg.Config.Tracing.Path, errorLogger)
 	defer shutdown()
 	s := g.Server()
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
 	registerController := user.NewRegister(repo, userLogger)
 	loginController := user.NewLogin(rdb, repo, userLogger)
-	errorManager := middleware.NewErrorManager(cfg.Config.App.LogPath, &cfg.Config.Middleware)
+	errorManager := middleware.NewErrorManager(cfg.Config.App.LogPath, &cfg.Config.Middleware, errorLogger)
 	loggerManager := middleware.NewLoggerManager(cfg.Config.App.LogPath, &cfg.Config.Middleware)
 	jwtManager := middleware.NewJWTManager(rdb, userLogger, &cfg.Config.Middleware)
+	traceManager := middleware.Trace
 	esController := logs.NewEsController(cfg.Config)
-	authController := user.NewAuthController(userLogger)
+	authController := user.NewAuthController()
+	panicController := user.NewPanicController()
 
 	s.Group("/", func(group *ghttp.RouterGroup) {
-		group.Middleware(middleware.Trace)
-		group.Middleware(errorManager.ErrorHandler, loggerManager.AccessHandler)
+		group.Middleware(traceManager, errorManager.ErrorHandler, loggerManager.AccessHandler)
 		group.Bind(registerController)
 		group.Bind(loginController)
+		group.Bind(panicController)
 		// group.Bind(esController)
 	})
 	s.Group("/", func(group *ghttp.RouterGroup) {

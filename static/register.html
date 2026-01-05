@@ -74,7 +74,17 @@
           }
         } catch (err) {
           // 3. 处理后端返回的错误（如用户已存在）
-          const errorMsg = err.response?.data?.message || '注册失败';
+          console.error("Register Error:", err);
+          let errorMsg = '注册失败';
+          if (err.response && err.response.data) {
+             if (err.response.data.message) {
+                 errorMsg = err.response.data.message;
+             } else if (err.response.data.msg) {
+                 errorMsg = err.response.data.msg;
+             }
+          } else if (err.message) {
+             errorMsg = err.message;
+          }
           ElementPlus.ElMessage.error(errorMsg);
         } finally {
           loading.value = false;

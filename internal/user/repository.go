@@ -40,6 +40,7 @@ func (repo *userRepository) CreateUser(user *Users) error {
 			if mysqlErr.Number == 1062 { // Error 1062: Duplicate entry
 				return ErrDuplicateUser
 			}
+			return err
 		} else {
 			return err
 		}

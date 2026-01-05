@@ -25,7 +25,7 @@ elasticsearch:
 
 jwt:
   secret: "test"
-  expire: 150s
+  expire: 1500s
 
 middleware:
   error: true

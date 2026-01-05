@@ -21,8 +21,8 @@ import (
 
 type LoginReq struct {
 	g.Meta   `path:"/user/login" method:"post"`
-	Username string `json:"username" v:"required#username required"`
-	Password string `json:"password" v:"required#password required"`
+	Username string `json:"username" v:"required#用户名不能为空"`
+	Password string `json:"password" v:"required#密码不能为空"`
 }
 
 type LoginRes struct {
@@ -54,7 +54,8 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	user, err := params.repo.FindUserByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			return nil, gerror.NewCode(gcode.CodeNotAuthorized, "invalid username or password")
+			params.userLogger.Info(ctx, "Login invalid user: ", req.Username)
+			return nil, gerror.NewCode(gcode.CodeNotAuthorized, "用户名不存在")
 		}
 
 		//params.userLogger.Error(ctx, "login db error", err)
@@ -62,7 +63,8 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	}
 
 	if user.Password != hashPass {
-		return nil, gerror.NewCode(gcode.CodeNotAuthorized, "invalid username or password")
+		params.userLogger.Info(ctx, "Login wrong password: ", req.Username)
+		return nil, gerror.NewCode(gcode.CodeNotAuthorized, "用户名或密码错误")
 	}
 
 	token, err := middleware.GenerateToken(strconv.Itoa(int(user.UserID)))
@@ -81,13 +83,12 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 	})
 
 	if err = params.rdb.SetCache(token, strconv.Itoa(int(user.UserID)), redis.JWTExpireTime, ctx); err != nil {
-		//params.userLogger.Error(ctx, "redis set cache error", err)
 		return nil, err
 	}
 
 	span.SetAttributes(attribute.String("user.id", strconv.Itoa(int(user.UserID))))
 
-	params.userLogger.Info(ctx, fmt.Sprintf("login success: %s", req.Username), "userid", user.UserID)
+	params.userLogger.Info(ctx, "Login success: ", req.Username, "userid: ", user.UserID)
 
 	r.Response.WriteJson(g.Map{
 		"code":    200,
@@ -118,7 +119,7 @@ func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes
 	if tokenString == "" {
 		params.userLogger.Info(ctx, "Logout: Failed to get cookie or token is empty")
 	} else {
-		// Try to get userId from Redis before deleting
+		// 获取userid
 		val, err := params.rdb.GetCache(tokenString, ctx)
 		if err == nil {
 			userId = val
@@ -127,16 +128,17 @@ func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes
 			if err1 == nil {
 				userId = claims.UserId
 			} else {
-				params.userLogger.Info(ctx, fmt.Sprintf("Logout: Failed to validate token: %v", err1))
+				params.userLogger.Info(ctx, "Logout: Failed to validate token: ", err1)
+				// 防止 token 过期出错
+				if claims, err2 := middleware.ParseTokenUnverified(tokenString); err2 == nil {
+					userId = claims.UserId
+				}
 			}
 		}
 
-		params.userLogger.Info(ctx, fmt.Sprintf("Logout: Got token from cookie: %s", tokenString))
 		err = params.rdb.DeleteCache(tokenString, ctx)
 		if err != nil {
 			params.userLogger.Info(ctx, fmt.Sprintf("Logout: Failed to delete from redis: %v", err))
-		} else {
-			params.userLogger.Info(ctx, "Logout: Successfully deleted from redis")
 		}
 	}
 
@@ -153,7 +155,7 @@ func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes
 		Secure:   false,
 	})
 
-	params.userLogger.Info(ctx, "user logout", "userid", userId)
+	params.userLogger.Info(ctx, "Logout success: ", "userid", userId)
 	r.Response.WriteJson(g.Map{
 		"code":    200,
 		"message": "logout success",

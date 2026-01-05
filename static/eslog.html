@@ -64,6 +64,14 @@
             </template>
         </el-table-column>
 
+        <el-table-column label="级别" width="100" align="center">
+            <template #default="scope">
+                <el-tag :type="getLevelTag(scope.row.level)">
+                    {{ scope.row.level }}
+                </el-tag>
+            </template>
+        </el-table-column>
+
         <!-- 修改 内容列 -->
         <el-table-column label="日志内容" min-width="400">
             <template #default="scope">
@@ -133,7 +141,7 @@
                         ElementPlus.ElMessage.error('未授权，请重新登录');
                         setTimeout(() => {
                             window.location.href = '/login.html';
-                        }, 1000);
+                        }, 2000);
                     } else {
                         ElementPlus.ElMessage.error('获取日志失败: ' + (err.response?.data?.message || '服务器错误'));
                     }
@@ -155,12 +163,13 @@
                 fetchLogs();
             };
 
-            const getLevelType = (level) => {
-                const l = level.toLowerCase();
-                if (l.includes('info')) return 'info';
-                if (l.includes('warn')) return 'warning';
-                if (l.includes('error')) return 'danger';
-                if (l.includes('debug')) return 'success';
+            const getLevelTag = (level) => {
+                if (!level) return 'info';
+                level = level.toUpperCase();
+                if (level.includes('ERR') || level.includes('FAIL')) return 'danger';
+                if (level.includes('WARN')) return 'warning';
+                if (level.includes('INFO')) return 'success';
+                if (level.includes('DEBU')) return 'info';
                 return '';
             };
 
@@ -206,8 +215,18 @@
             });
 
             return {
-                loading, logData, total, queryParam, dateRange,
-                fetchLogs, handleSearch, resetQuery, getLevelType, formatTime, formatContent, handleLogout
+                queryParam,
+                dateRange,
+                logData,
+                total,
+                loading,
+                fetchLogs,
+                handleSearch,
+                resetQuery,
+                handleLogout,
+                formatTime,
+                formatContent,
+                getLevelTag
             };
         }
     }).use(ElementPlus).mount('#app');

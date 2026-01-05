@@ -5,18 +5,20 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/gtrace"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type RegisterReq struct {
 	g.Meta   `path:"/user/register" method:"post"`
-	Username string `json:"username" v:"required#username and password required"`
-	Password string `json:"password" v:"required#password and password required"`
+	Username string `json:"username" v:"required#用户名不能为空"`
+	Password string `json:"password" v:"required#密码不能为空"`
 }
 type RegisterRes struct {
 }
@@ -46,15 +48,16 @@ func (params Register) Register(ctx context.Context, req *RegisterReq) (res *Reg
 
 	if err = params.repo.CreateUser(user); err != nil {
 		if errors.Is(err, ErrDuplicateUser) {
+			params.userLogger.Info(ctx, "Register user exists:", req.Username)
 			return nil, gerror.NewCode(gcode.CodeValidationFailed, "用户已存在")
 		}
 
-		// 系统错误（交给中间件处理）
-		params.userLogger.Info(ctx, "register db error", req.Username)
+		params.userLogger.Info(ctx, "Register db other error:", err.Error())
 		return nil, err
 	}
 
-	params.userLogger.Info(ctx, "register success", req.Username)
+	span.SetAttributes(attribute.String("user.id", strconv.Itoa(int(user.UserID))))
+	params.userLogger.Info(ctx, "Register success:", req.Username)
 
 	r.Response.WriteJson(g.Map{
 		"code":    200,

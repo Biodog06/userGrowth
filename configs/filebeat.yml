@@ -1,8 +1,10 @@
 filebeat.inputs:
-  # 业务日志
   - type: filestream
     id: err-logs
     enabled: true
+    prospector.scanner.check_interval: 1s
+    backoff.init: 100ms
+    backoff.max: 1s
     paths:
       - /var/log/app_logs/error.log
     fields:
@@ -17,6 +19,9 @@ filebeat.inputs:
   - type: filestream
     id: user-logs
     enabled: true
+    prospector.scanner.check_interval: 1s
+    backoff.init: 100ms
+    backoff.max: 1s
     paths:
       - /var/log/app_logs/user.log
     fields:
@@ -31,6 +36,9 @@ filebeat.inputs:
   - type: filestream
     id: access-logs
     enabled: true
+    prospector.scanner.check_interval: 1s
+    backoff.init: 100ms
+    backoff.max: 1s
     paths:
       - /var/log/app_logs/access.log
     fields:
@@ -51,10 +59,9 @@ filebeat.inputs:
 
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
-  # 默认索引
+
   index: "usergrowth-other-%{+yyyy.MM.dd}"
   
-  # 动态路由规则
   indices:
     - index: "usergrowth-error-%{+yyyy.MM.dd}"
       when.equals:
@@ -66,7 +73,7 @@ output.elasticsearch:
       when.equals:
         log_topic: "user"
 
-# 必须设置 setup.template 才能让自定义索引名生效
+# 自定义索引名
 setup.template.name: "usergrowth"
 setup.template.pattern: "usergrowth-*"
 setup.template.enabled: false 
