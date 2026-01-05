@@ -18,6 +18,7 @@ type MyRedis struct {
 type Cache interface {
 	SetCache(key, value string, expire time.Duration, ctx context.Context) error
 	GetCache(key string, ctx context.Context) (string, error)
+	DeleteCache(key string, ctx context.Context) error
 	Close() error
 }
 
@@ -50,6 +51,13 @@ func (rdb *MyRedis) GetCache(key string, ctx context.Context) (string, error) {
 		return "", err
 	}
 	return val, nil
+}
+
+func (rdb *MyRedis) DeleteCache(key string, ctx context.Context) error {
+	if err := rdb.Del(ctx, key).Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (rdb *MyRedis) Close() error {

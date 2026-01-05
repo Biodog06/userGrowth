@@ -26,3 +26,8 @@ elasticsearch:
 jwt:
   secret: "test"
   expire: 150s
+
+middleware:
+  error: true
+  access: true
+  jwt: true

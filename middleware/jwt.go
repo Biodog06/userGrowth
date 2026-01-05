@@ -23,12 +23,14 @@ type UserClaims struct {
 type JWTManager struct {
 	rdb        redis.Cache
 	userLogger logs.Logger
+	cfg        *config.MiddlewareConfig
 }
 
-func NewJWTManager(rdb redis.Cache, userLogger logs.Logger) *JWTManager {
+func NewJWTManager(rdb redis.Cache, userLogger logs.Logger, cfg *config.MiddlewareConfig) *JWTManager {
 	return &JWTManager{
 		rdb:        rdb,
 		userLogger: userLogger,
+		cfg:        cfg,
 	}
 }
 
@@ -78,6 +80,10 @@ func ValidateToken(tokenString string) (*UserClaims, error) {
 }
 
 func (m *JWTManager) JWTHandler(r *ghttp.Request) {
+	if !m.cfg.JWT {
+		r.Middleware.Next()
+		return
+	}
 	tokenString := r.Cookie.Get("jwt-token").String()
 	ctx := r.GetCtx()
 

@@ -103,6 +103,45 @@ func (params *Login) Login(ctx context.Context, req *LoginReq) (res *LoginRes, e
 			"token": token,
 		},
 	})
+	return nil, nil
+}
 
+type LogoutReq struct {
+	g.Meta `path:"/user/logout" method:"post"`
+}
+
+type LogoutRes struct {
+}
+
+func (params *Login) Logout(ctx context.Context, req *LogoutReq) (res *LogoutRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	tokenString := r.Cookie.Get("jwt-token").String()
+
+	if tokenString == "" {
+		params.userLogger.Info(ctx, "Logout: Failed to get cookie or token is empty")
+	} else {
+		params.userLogger.Info(ctx, fmt.Sprintf("Logout: Got token from cookie: %s", tokenString))
+		err := params.rdb.DeleteCache(tokenString, ctx)
+		if err != nil {
+			params.userLogger.Info(ctx, fmt.Sprintf("Logout: Failed to delete from redis: %v", err))
+		} else {
+			params.userLogger.Info(ctx, "Logout: Successfully deleted from redis")
+		}
+	}
+
+	r.Cookie.SetHttpCookie(&http.Cookie{
+		Name:     "jwt-token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   false,
+	})
+
+	params.userLogger.Info(ctx, "user logout")
+	r.Response.WriteJson(g.Map{
+		"code":    200,
+		"message": "logout success",
+	})
 	return nil, nil
 }

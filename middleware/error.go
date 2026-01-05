@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	config "usergrowth/configs"
 	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/errors/gcode"
@@ -13,13 +14,21 @@ import (
 
 type ErrorManager struct {
 	errorLogger logs.Logger
+	cfg         *config.MiddlewareConfig
 }
 
-func NewErrorManager(loggerPath string) *ErrorManager {
-	return &ErrorManager{logs.NewErrorLogger(loggerPath)}
+func NewErrorManager(loggerPath string, cfg *config.MiddlewareConfig) *ErrorManager {
+	return &ErrorManager{
+		errorLogger: logs.NewErrorLogger(loggerPath),
+		cfg:         cfg,
+	}
 }
 
 func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
+	if !m.cfg.Error {
+		r.Middleware.Next()
+		return
+	}
 	ctx := r.GetCtx()
 	defer func() {
 		if exception := recover(); exception != nil {

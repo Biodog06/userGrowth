@@ -1,27 +1,42 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gcfg"
+	"github.com/gogf/gf/v2/os/gctx"
 )
 
+type ConfigManager struct {
+	Config *Config
+	cfg    *gcfg.Config
+}
+
 type Config struct {
-	App   AppConfig           `yaml:"app"`
-	MySQL MySQLConfig         `yaml:"mysql"`
-	Redis RedisConfig         `yaml:"redis"`
-	ES    ElasticsearchConfig `yaml:"elasticsearch"`
-	JWT   JWTConfig           `yaml:"jwt"`
+	App           AppConfig           `yaml:"app"`
+	MySQL         MySQLConfig         `yaml:"mysql"`
+	Redis         RedisConfig         `yaml:"redis"`
+	Elasticsearch ElasticsearchConfig `yaml:"elasticsearch"`
+	JWT           JWTConfig           `yaml:"jwt"`
+	Middleware    MiddlewareConfig    `yaml:"middleware"`
+}
+
+type MiddlewareConfig struct {
+	Error  bool `yaml:"error" default:"true"`
+	Access bool `yaml:"access" default:"true"`
+	JWT    bool `yaml:"jwt" default:"true"`
 }
 
 type AppConfig struct {
 	Name    string `yaml:"name"`
 	Port    string `yaml:"port" env:"APP_PORT" default:"8080" required:"true"`
-	LogPath string `yaml:"logPath" env:"APP_LOG_PATH" default:"./logs/"`
+	LogPath string `yaml:"logPath" env:"APP_LOG_PATH" default:"./logs"`
 }
 
 type MySQLConfig struct {
@@ -52,31 +67,32 @@ type JWTConfig struct {
 	Expire time.Duration `yaml:"expire" default:"1h"`
 }
 
-func NewConfig() *Config {
-	return &Config{}
-}
-
-func (c *Config) LoadConfig(path string) {
-	// Implementation for loading configuration from a file
-	byteData, _ := os.ReadFile(path)
-	err := yaml.Unmarshal(byteData, c)
-	if err != nil {
-		fmt.Println("yaml Unmarshal err:", err)
-		return
+func NewConfigManager() *ConfigManager {
+	return &ConfigManager{
+		Config: &Config{},
+		cfg:    g.Cfg(),
 	}
 }
 
-func (c *Config) LoadConfigWithReflex(path string) {
-	byteData, _ := os.ReadFile(path)
-	err := yaml.Unmarshal(byteData, c)
+func (c *ConfigManager) LoadConfigWithReflex(filePath string) {
+
+	adapter := g.Cfg().GetAdapter().(*gcfg.AdapterFile)
+
+	adapter.SetFileName(filePath)
+
+	val, err := c.cfg.Get(gctx.GetInitCtx(), ".")
 	if err != nil {
-		fmt.Println("yaml Unmarshal err:", err)
+		fmt.Println("get config error:", err)
 		return
 	}
-	c.ConfigReflexIterator(reflect.ValueOf(c).Elem())
+	if err = val.Scan(c.Config); err != nil {
+		fmt.Println("scan config error:", err)
+		return
+	}
+	c.ConfigReflexIterator(reflect.ValueOf(c.Config).Elem())
 }
 
-func (c *Config) ConfigReflexIterator(v reflect.Value) {
+func (c *ConfigManager) ConfigReflexIterator(v reflect.Value) {
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		if v.Field(i).Kind() == reflect.Struct {
@@ -87,7 +103,9 @@ func (c *Config) ConfigReflexIterator(v reflect.Value) {
 
 			if env != "" {
 				value := os.Getenv(env)
-				c.setFieldValue(value, field)
+				if value != "" {
+					c.setFieldValue(value, field)
+				}
 			}
 			defaultValue := t.Field(i).Tag.Get("default")
 			// 比较是否为空
@@ -105,7 +123,7 @@ func (c *Config) ConfigReflexIterator(v reflect.Value) {
 	}
 }
 
-func (c *Config) setFieldValue(value string, field reflect.Value) {
+func (c *ConfigManager) setFieldValue(value string, field reflect.Value) {
 	// reflect 不支持将 string 类型转换为其他类型，所以处理一下
 	if !field.CanSet() {
 		fmt.Println("can not set field:", field)
@@ -127,25 +145,35 @@ func (c *Config) setFieldValue(value string, field reflect.Value) {
 		if err == nil {
 			field.SetInt(int64(val))
 		}
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	default:
 		panic("unknown type")
 	}
 }
-func (c *Config) PrintConfig() {
-	fmt.Println("App Name:", c.App.Name)
-	fmt.Println("App Port:", c.App.Port)
-	fmt.Println("App LogPath:", c.App.LogPath)
-	fmt.Println("MySQL Host:", c.MySQL.Host)
-	fmt.Println("MySQL Port:", c.MySQL.Port)
-	fmt.Println("MySQL User:", c.MySQL.User)
-	fmt.Println("MySQL Pass:", c.MySQL.Pass)
-	fmt.Println("MySQL DB:", c.MySQL.DB)
-	fmt.Println("Redis Host:", c.Redis.Host)
-	fmt.Println("Redis Port:", c.Redis.Port)
-	fmt.Println("Redis Pass:", c.Redis.Pass)
-	fmt.Println("Elasticsearch Host:", c.ES.Host)
-	fmt.Println("JWT Secret:", c.JWT.Secret)
-	fmt.Println("JWT Expire:", c.JWT.Expire)
+func (c *ConfigManager) StartWatcher(path string) {
+	if adapter, ok := c.cfg.GetAdapter().(gcfg.WatcherAdapter); ok {
+		adapter.AddWatcher(path, func(ctx context.Context) {
+			c.LoadConfigWithReflex(path)
+		})
+	}
+}
+func (c *ConfigManager) PrintConfig() {
+	c.ConfigReflexIterator(reflect.ValueOf(c.Config).Elem())
+	fmt.Println("App Name:", c.Config.App.Name)
+	fmt.Println("App Port:", c.Config.App.Port)
+	fmt.Println("App LogPath:", c.Config.App.LogPath)
+	fmt.Println("MySQL Host:", c.Config.MySQL.Host)
+	fmt.Println("MySQL Port:", c.Config.MySQL.Port)
+	fmt.Println("MySQL User:", c.Config.MySQL.User)
+	fmt.Println("MySQL Pass:", c.Config.MySQL.Pass)
+	fmt.Println("MySQL DB:", c.Config.MySQL.DB)
+	fmt.Println("Redis Host:", c.Config.Redis.Host)
+	fmt.Println("Redis Port:", c.Config.Redis.Port)
+	fmt.Println("Redis Pass:", c.Config.Redis.Pass)
+	fmt.Println("Elasticsearch Host:", c.Config.Elasticsearch.Host)
+	fmt.Println("JWT Secret:", c.Config.JWT.Secret)
+	fmt.Println("JWT Expire:", c.Config.JWT.Expire)
 }

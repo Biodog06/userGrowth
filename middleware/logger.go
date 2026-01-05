@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	config "usergrowth/configs"
 	"usergrowth/internal/logs"
 
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -11,6 +12,7 @@ import (
 
 type LoggerManager struct {
 	accLogger logs.Logger
+	cfg       *config.MiddlewareConfig
 }
 
 type Content struct {
@@ -24,11 +26,18 @@ type Content struct {
 	AccDura        time.Duration `json:"dura"`
 }
 
-func NewLoggerManager(loggerPath string) *LoggerManager {
-	return &LoggerManager{logs.NewAccLogger(loggerPath)}
+func NewLoggerManager(loggerPath string, cfg *config.MiddlewareConfig) *LoggerManager {
+	return &LoggerManager{
+		accLogger: logs.NewAccLogger(loggerPath),
+		cfg:       cfg,
+	}
 }
 
 func (lm *LoggerManager) AccessHandler(r *ghttp.Request) {
+	if !lm.cfg.Access {
+		r.Middleware.Next()
+		return
+	}
 	ctx := r.GetCtx()
 	accBody := r.GetBodyString()
 	accMethod := r.Method

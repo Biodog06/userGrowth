@@ -17,16 +17,16 @@ import (
 )
 
 func main() {
-	cfg := config.NewConfig()
+	cfg := config.NewConfigManager()
 	configPath := os.Getenv("configPath")
 	if configPath == "" {
 		configPath = "configs/config.yaml"
 	}
 	fmt.Println("Config Path:", configPath)
 	cfg.LoadConfigWithReflex(configPath)
-
+	cfg.StartWatcher(configPath)
 	redisCtx := context.Background()
-	rdb := redis.NewRedis(cfg, redisCtx)
+	rdb := redis.NewRedis(cfg.Config, redisCtx)
 	defer func(rdb redis.Cache) {
 		err := rdb.Close()
 		if err != nil {
@@ -34,21 +34,21 @@ func main() {
 		}
 	}(rdb)
 
-	msq := mysql.NewDB(cfg)
+	msq := mysql.NewDB(cfg.Config)
 
-	middleware.InitJWT(cfg)
+	middleware.InitJWT(cfg.Config)
 
-	userLogger := logs.NewUserLogger(cfg.App.LogPath)
+	userLogger := logs.NewUserLogger(cfg.Config.App.LogPath)
 
 	s := g.Server()
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
 	registerController := user.NewRegister(repo, userLogger)
 	loginController := user.NewLogin(rdb, repo, userLogger)
-	errorManager := middleware.NewErrorManager(cfg.App.LogPath)
-	loggerManager := middleware.NewLoggerManager(cfg.App.LogPath)
-	jwtManager := middleware.NewJWTManager(rdb, userLogger)
-	esController := logs.NewEsController(cfg)
+	errorManager := middleware.NewErrorManager(cfg.Config.App.LogPath, &cfg.Config.Middleware)
+	loggerManager := middleware.NewLoggerManager(cfg.Config.App.LogPath, &cfg.Config.Middleware)
+	jwtManager := middleware.NewJWTManager(rdb, userLogger, &cfg.Config.Middleware)
+	esController := logs.NewEsController(cfg.Config)
 	authController := user.NewAuthController(userLogger)
 
 	s.Group("/", func(group *ghttp.RouterGroup) {
@@ -63,7 +63,7 @@ func main() {
 		group.Bind(esController)
 		group.Bind(authController)
 	})
-	port, err := strconv.Atoi(cfg.App.Port)
+	port, err := strconv.Atoi(cfg.Config.App.Port)
 	if err != nil {
 		fmt.Println(err)
 		return

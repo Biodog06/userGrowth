@@ -38,7 +38,7 @@ type EsController struct {
 
 func NewEsController(cfg *config.Config) *EsController {
 	esCfg := elastic.Config{
-		Addresses: []string{fmt.Sprintf("http://%s:%s", cfg.ES.Host, strconv.Itoa(cfg.ES.Port))},
+		Addresses: []string{fmt.Sprintf("http://%s:%s", cfg.Elasticsearch.Host, strconv.Itoa(cfg.Elasticsearch.Port))},
 	}
 	client, err := elastic.NewClient(esCfg)
 	if err != nil {
@@ -46,7 +46,7 @@ func NewEsController(cfg *config.Config) *EsController {
 	}
 	return &EsController{
 		client: client,
-		index:  cfg.ES.LogIndex,
+		index:  cfg.Elasticsearch.LogIndex,
 	}
 }
 
