@@ -30,7 +30,7 @@ jwt:
 middleware:
   error: true
   access: true
-  jwt: false
+  jwt: true
 
 tracing:
   endpoint: "localhost:4318"
