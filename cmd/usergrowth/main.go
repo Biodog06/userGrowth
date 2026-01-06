@@ -47,6 +47,7 @@ func main() {
 
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
+	s.SetErrorLogEnabled(false) // 关闭默认的错误日志记录
 	registerController := user.NewRegister(repo, userLogger)
 	loginController := user.NewLogin(rdb, repo, userLogger)
 	errorManager := middleware.NewErrorManager(cfg.Config.App.LogPath, &cfg.Config.Middleware, errorLogger)

@@ -83,5 +83,5 @@ func (lm *LoggerManager) AccessHandler(r *ghttp.Request) {
 	}
 
 	lm.accLogger.Debug(ctx, encodeContent)
-	fmt.Println(string(encodeContent))
+	// fmt.Println(string(encodeContent))
 }
