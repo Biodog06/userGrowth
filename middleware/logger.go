@@ -35,7 +35,7 @@ func NewLoggerManager(loggerPath string, cfg *config.MiddlewareConfig) *LoggerMa
 }
 
 func (lm *LoggerManager) AccessHandler(r *ghttp.Request) {
-	if !lm.cfg.Access {
+	if lm.cfg.Access == nil || !*lm.cfg.Access {
 		r.Middleware.Next()
 		return
 	}

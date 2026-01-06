@@ -44,6 +44,7 @@ func main() {
 	shutdown := observability.InitTracer(cfg.Config.Tracing.ServiceName, cfg.Config.Tracing.Endpoint, cfg.Config.Tracing.Path, errorLogger)
 	defer shutdown()
 	s := g.Server()
+
 	repo := user.NewUserRepository(msq.DB)
 	s.SetServerRoot("./static")
 	registerController := user.NewRegister(repo, userLogger)
@@ -51,17 +52,17 @@ func main() {
 	errorManager := middleware.NewErrorManager(cfg.Config.App.LogPath, &cfg.Config.Middleware, errorLogger)
 	loggerManager := middleware.NewLoggerManager(cfg.Config.App.LogPath, &cfg.Config.Middleware)
 	jwtManager := middleware.NewJWTManager(rdb, userLogger, &cfg.Config.Middleware)
-	traceManager := middleware.Trace
+	traceHandler := middleware.Trace
 	esController := logs.NewEsController(cfg.Config)
 	authController := user.NewAuthController()
 	panicController := user.NewPanicController()
 
+	s.Use(traceHandler, errorManager.ErrorHandler, loggerManager.AccessHandler)
+
 	s.Group("/", func(group *ghttp.RouterGroup) {
-		group.Middleware(traceManager, errorManager.ErrorHandler, loggerManager.AccessHandler)
 		group.Bind(registerController)
 		group.Bind(loginController)
 		group.Bind(panicController)
-		// group.Bind(esController)
 	})
 	s.Group("/", func(group *ghttp.RouterGroup) {
 		group.Middleware(jwtManager.JWTHandler)

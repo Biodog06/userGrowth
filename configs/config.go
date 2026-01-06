@@ -29,9 +29,9 @@ type Config struct {
 }
 
 type MiddlewareConfig struct {
-	Error  bool `yaml:"error" default:"true"`
-	Access bool `yaml:"access" default:"true"`
-	JWT    bool `yaml:"jwt" default:"true"`
+	Error  *bool `yaml:"error" default:"true"`
+	Access *bool `yaml:"access" default:"true"`
+	JWT    *bool `yaml:"jwt" default:"true"`
 }
 
 type AppConfig struct {
@@ -151,6 +151,15 @@ func (c *ConfigManager) setFieldValue(value string, field reflect.Value) {
 		val, err := strconv.Atoi(value)
 		if err == nil {
 			field.SetInt(int64(val))
+		}
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
+	case reflect.Bool:
+		val, err := strconv.ParseBool(value)
+		if err == nil {
+			field.SetBool(val)
 		}
 		if err != nil {
 			fmt.Println(err)

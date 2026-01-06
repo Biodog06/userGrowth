@@ -29,9 +29,9 @@ func TestLoadConfigWithReflex(t *testing.T) {
 	assert.Equal(t, "usergrowth", cm.Config.MySQL.DB)
 
 	// Assert Middleware config
-	assert.True(t, cm.Config.Middleware.Error)
-	assert.True(t, cm.Config.Middleware.Access)
-	assert.True(t, cm.Config.Middleware.JWT)
+	assert.True(t, *cm.Config.Middleware.Error)
+	assert.True(t, *cm.Config.Middleware.Access)
+	assert.False(t, *cm.Config.Middleware.JWT)
 
 	// Print config for visual verification
 	fmt.Printf("Loaded Config: %+v\n", cm.Config)

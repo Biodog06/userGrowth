@@ -6,27 +6,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	config "usergrowth/configs"
 
 	elastic "github.com/elastic/go-elasticsearch/v8"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/gtrace"
+	"github.com/gogf/gf/v2/text/gstr"
 )
 
-// EsLogsReq 查询日志请求参数
 type EsLogsReq struct {
 	g.Meta    `path:"/api/eslog" method:"get"`
-	Keyword   string `p:"keyword"`     // 关键词
-	Level     string `p:"level"`       // 日志级别
-	Topic     string `p:"topic"`       // 日志主题
-	StartTime string `p:"start_time"`  // 开始时间
-	EndTime   string `p:"end_time"`    // 结束时间
-	Page      int    `p:"page" d:"1"`  // 页码，默认1
-	Size      int    `p:"size" d:"10"` // 每页条数，默认10
+	Keyword   string `p:"keyword"`
+	Level     string `p:"level"`
+	Topic     string `p:"topic"`
+	StartTime string `p:"start_time"`
+	EndTime   string `p:"end_time"`
+	Page      int    `p:"page" d:"1"`
+	Size      int    `p:"size" d:"10"`
 }
 
-// EsLogsRes 日志查询响应
 type EsLogsRes struct {
 	Total int           `json:"total"`
 	Data  []interface{} `json:"data"`
@@ -52,6 +51,9 @@ func NewEsController(cfg *config.Config) *EsController {
 }
 
 func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogsRes, err error) {
+	ctx, span := gtrace.NewSpan(ctx, "eslog")
+	defer span.End()
+
 	r := g.RequestFromCtx(ctx)
 
 	from := (req.Page - 1) * req.Size
@@ -84,8 +86,18 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 	}
 
 	if req.Level != "" {
+		level := gstr.ToUpper(req.Level)
+		switch level {
+		case "ERROR":
+			level = "ERRO"
+		case "DEBUG":
+			level = "DEBU"
+		case "WARNING":
+			level = "WARN"
+		}
+
 		filterList = append(filterList, g.Map{
-			"term": g.Map{"level": req.Level},
+			"term": g.Map{"level": level},
 		})
 	}
 
@@ -113,10 +125,7 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(query); err != nil {
-		// 返回给前端的错误响应
-		r.Response.WriteStatus(http.StatusInternalServerError)
 		r.Response.WriteJson(g.Map{"code": 500, "message": "构建查询失败"})
-		// 返回给中间件的错误（用于日志）
 		return nil, fmt.Errorf("构建查询失败: %w", err)
 	}
 
@@ -128,7 +137,6 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 		h.client.Search.WithTrackTotalHits(true),
 	)
 	if err != nil {
-		r.Response.WriteStatus(http.StatusInternalServerError)
 		r.Response.WriteJson(g.Map{"code": 500, "message": "ES查询失败"})
 		return nil, fmt.Errorf("ES查询失败: %w", err)
 	}
@@ -136,11 +144,9 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 		_ = Body.Close()
 	}(esRes.Body)
 
-	// 检查 ES 响应状态
 	if esRes.IsError() {
 		var errRes map[string]interface{}
 		_ = json.NewDecoder(esRes.Body).Decode(&errRes)
-		r.Response.WriteStatus(esRes.StatusCode)
 		r.Response.WriteJson(g.Map{
 			"code":    esRes.StatusCode,
 			"message": "ES返回错误",
@@ -149,17 +155,15 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 		return nil, fmt.Errorf("ES返回错误: %v", errRes)
 	}
 
-	// 解析 ES 响应体
+	// 解析 ES 响应
 	var rMap map[string]interface{}
 	if err = json.NewDecoder(esRes.Body).Decode(&rMap); err != nil {
-		r.Response.WriteStatus(http.StatusInternalServerError)
 		r.Response.WriteJson(g.Map{"code": 500, "message": "解析响应失败"})
 		return nil, fmt.Errorf("解析响应失败: %w", err)
 	}
 
 	hitsRoot, ok := rMap["hits"].(map[string]interface{})
 	if !ok {
-		r.Response.WriteStatus(http.StatusInternalServerError)
 		r.Response.WriteJson(g.Map{"code": 500, "message": "ES响应格式异常"})
 		return nil, fmt.Errorf("ES响应格式异常")
 	}
@@ -178,7 +182,6 @@ func (h *EsController) GetLogs(ctx context.Context, req *EsLogsReq) (res *EsLogs
 		}
 	}
 
-	// 3. 返回结果 (遵循 login.go 模式，自己写 Response)
 	r.Response.WriteJson(g.Map{
 		"code":    200,
 		"message": "success",

@@ -92,7 +92,7 @@ func ParseTokenUnverified(tokenString string) (*UserClaims, error) {
 }
 
 func (m *JWTManager) JWTHandler(r *ghttp.Request) {
-	if !m.cfg.JWT {
+	if m.cfg.JWT == nil || !*m.cfg.JWT {
 		r.Middleware.Next()
 		return
 	}

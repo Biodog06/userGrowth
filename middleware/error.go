@@ -1,9 +1,7 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
-	"runtime/debug"
 	config "usergrowth/configs"
 	"usergrowth/internal/logs"
 
@@ -27,7 +25,7 @@ func NewErrorManager(loggerPath string, cfg *config.MiddlewareConfig, errorLogge
 }
 
 func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
-	if !m.cfg.Error {
+	if m.cfg.Error == nil || !*m.cfg.Error {
 		r.Middleware.Next()
 		return
 	}
@@ -36,19 +34,6 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 	defer span.End()
 	r.SetCtx(ctx)
 
-	defer func() {
-		if exception := recover(); exception != nil {
-			errorMsg := fmt.Sprintf("SERVER PANIC: %v\n%s", exception, debug.Stack())
-			m.errorLogger.Error(ctx, errorMsg)
-			r.Response.ClearBuffer()
-			r.Response.WriteJson(
-				g.Map{
-					"code":    http.StatusInternalServerError,
-					"message": "服务器繁忙，请稍后再试",
-					"data":    nil,
-				})
-		}
-	}()
 	r.Middleware.Next()
 	err := r.GetError()
 
@@ -72,16 +57,30 @@ func (m *ErrorManager) ErrorHandler(r *ghttp.Request) {
 				"data":    nil,
 			})
 		default:
-			m.errorLogger.Error(ctx, "internal error: ", err)
-			// 如果 Controller 还没有写入响应，则返回默认错误
-			if r.Response.BufferLength() == 0 {
+			isPanic := false
+			if stack := gerror.Stack(err); stack != "" {
+				isPanic = true
+			}
+			if isPanic {
+				stack := gerror.Stack(err)
+				m.errorLogger.Error(ctx,
+					"PANIC recovered by framework",
+					"error", err.Error(),
+					g.Map{"stack": stack},
+				)
 				r.Response.ClearBuffer()
-				r.Response.WriteJson(
-					g.Map{
-						"code":    http.StatusInternalServerError,
-						"message": "服务器繁忙，请稍后再试",
-						"data":    nil,
-					})
+				r.Response.WriteJson(g.Map{
+					"code":    http.StatusInternalServerError,
+					"message": "服务器繁忙，请稍后再试",
+					// "debug_stack": stack, // 仅 debug 环境开启
+				})
+			} else {
+				m.errorLogger.Error(ctx, "internal error: ", err.Error())
+				r.Response.ClearBuffer()
+				r.Response.WriteJson(g.Map{
+					"code":    http.StatusInternalServerError,
+					"message": "服务器繁忙，请稍后再试",
+				})
 			}
 		}
 	}
